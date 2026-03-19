@@ -88,12 +88,12 @@ function AppNavigator() {
 
     const renderTab = () => {
         switch (activeTab) {
-            case 'home': return <HomeScreen />;
+            case 'home': return <HomeScreen onViewWork={(id) => setSelectedProjectId(id)} />;
             case 'budget': return <BudgetScreen />;
             case 'news': return <NewsScreen onViewWork={(id) => setSelectedProjectId(id)} />;
             case 'addWork': return <AddWorkScreen onDone={() => setActiveTab('home')} />;
             case 'profile': return <ProfileScreen />;
-            default: return <HomeScreen />;
+            default: return <HomeScreen onViewWork={(id) => setSelectedProjectId(id)} />;
         }
     };
 

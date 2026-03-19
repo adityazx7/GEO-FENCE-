@@ -1,6 +1,14 @@
 import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useQuery } from 'convex/react';
+
+function formatBudget(amount: number | undefined): string {
+    if (amount === undefined || amount === null) return '₹0';
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)} K`;
+    return `₹${amount}`;
+}
 
 export default function GovernmentWorkScreen({ projectId, onBack }: { projectId: string; onBack: () => void }) {
     const projects = useQuery('projects:list' as any) || [];
@@ -58,10 +66,39 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
                     <Text style={styles.impact}>{project.impact}</Text>
                 </View>
 
+                {/* Before & After Images */}
+                {(project.beforeImages?.length > 0 || project.afterImages?.length > 0) && (
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Project Photos</Text>
+                        
+                        {project.beforeImages?.length > 0 && (
+                            <View style={{ marginBottom: 16 }}>
+                                <Text style={styles.imageSubLabel}>Before Work</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {project.beforeImages.map((img: string, idx: number) => (
+                                        <Image key={idx} source={{ uri: img }} style={styles.detailImage} />
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        {project.afterImages?.length > 0 && (
+                            <View>
+                                <Text style={styles.imageSubLabel}>After Completion</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {project.afterImages.map((img: string, idx: number) => (
+                                        <Image key={idx} source={{ uri: img }} style={styles.detailImage} />
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+                    </View>
+                )}
+
                 <View style={styles.statsRow}>
                     <View style={[styles.statBox, { marginRight: 6 }]}>
                         <Text style={styles.statLabel}>Budget</Text>
-                        <Text style={styles.statValue}>₹{(project.budget / 10000000).toFixed(1)} Cr</Text>
+                        <Text style={styles.statValue}>{formatBudget(project.budget)}</Text>
                     </View>
                     <View style={[styles.statBox, { marginLeft: 6 }]}>
                         <Text style={styles.statLabel}>Location</Text>
@@ -115,4 +152,6 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 10, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
     statValue: { fontSize: 14, fontWeight: '700', color: '#e5e7eb' },
     statValueSmall: { fontSize: 12, fontWeight: '500', color: '#9ca3af', fontFamily: 'monospace' },
+    imageSubLabel: { fontSize: 12, color: '#9ca3af', marginBottom: 8, fontWeight: '600' },
+    detailImage: { width: 140, height: 100, borderRadius: 10, marginRight: 10, backgroundColor: '#1f2937' },
 });

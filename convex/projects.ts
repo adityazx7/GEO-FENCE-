@@ -36,14 +36,49 @@ export const create = mutation({
 export const list = query({
     args: {},
     handler: async (ctx) => {
-        return await ctx.db.query("projects").collect();
+        const projects = await ctx.db.query("projects").collect();
+        
+        const mapImages = async (imgs: string[]) => {
+            return await Promise.all(
+                imgs.map(async (img) => {
+                    if (img.startsWith("http")) return img;
+                    return await ctx.storage.getUrl(img) || img;
+                })
+            );
+        };
+
+        return await Promise.all(
+            projects.map(async (p) => {
+                return {
+                    ...p,
+                    beforeImages: p.beforeImages ? await mapImages(p.beforeImages) : undefined,
+                    afterImages: p.afterImages ? await mapImages(p.afterImages) : undefined,
+                };
+            })
+        );
     },
 });
 
 export const getById = query({
     args: { id: v.id("projects") },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.id);
+        const p = await ctx.db.get(args.id);
+        if (!p) return null;
+
+        const mapImages = async (imgs: string[]) => {
+            return await Promise.all(
+                imgs.map(async (img) => {
+                    if (img.startsWith("http")) return img;
+                    return await ctx.storage.getUrl(img) || img;
+                })
+            );
+        };
+
+        return {
+            ...p,
+            beforeImages: p.beforeImages ? await mapImages(p.beforeImages) : undefined,
+            afterImages: p.afterImages ? await mapImages(p.afterImages) : undefined,
+        };
     },
 });
 

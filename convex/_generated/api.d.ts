@@ -13,6 +13,7 @@ import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
 import type * as booths from "../booths.js";
+import type * as files from "../files.js";
 import type * as geoFences from "../geoFences.js";
 import type * as geospatial from "../geospatial.js";
 import type * as neo4j from "../neo4j.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authHelpers: typeof authHelpers;
   booths: typeof booths;
+  files: typeof files;
   geoFences: typeof geoFences;
   geospatial: typeof geospatial;
   neo4j: typeof neo4j;

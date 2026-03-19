@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, StatusBar, Platform, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, StatusBar, Platform, TouchableOpacity, Modal, Image } from 'react-native';
 import * as Location from 'expo-location';
 import { useQuery } from 'convex/react';
 import { useAuth } from '../context/AuthContext';
@@ -16,11 +16,21 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
     return R * c;
 }
 
-export default function HomeScreen() {
+// Format budget safely
+function formatBudget(amount: number | undefined): string {
+    if (amount === undefined || amount === null) return '₹0';
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)} K`;
+    return `₹${amount}`;
+}
+
+export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) => void }) {
     const { user } = useAuth();
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [isMapExpanded, setIsMapExpanded] = useState(false);
 
     const projects = useQuery('projects:list' as any) || [];
 
@@ -106,10 +116,12 @@ export default function HomeScreen() {
                     // User location marker
                     const userIcon = L.divIcon({
                         className: 'user-marker',
-                        html: '<div style="background: #00d4ff; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #00d4ff;"></div>',
-                        iconSize: [12, 12]
+                        html: '<div style="background: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 15px #ef4444; position: relative;"><div style="position: absolute; width: 30px; height: 30px; background: rgba(239, 68, 68, 0.4); border-radius: 50%; top: -11px; left: -11px; animation: pulse 2s infinite;"></div></div><style>@keyframes pulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }</style>',
+                        iconSize: [14, 14]
                     });
-                    L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
+                    L.marker([${userLat}, ${userLng}], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup('<b>You are here</b>');
 
                     // 500m Radius Circle
                     L.circle([${userLat}, ${userLng}], {
@@ -144,6 +156,45 @@ export default function HomeScreen() {
             </html>
         `;
     };
+
+    const renderProjectCard = (project: any, isHighlight: boolean = false) => (
+        <TouchableOpacity 
+            key={project._id} 
+            style={isHighlight ? styles.projectCardHighlight : styles.projectCard}
+            onPress={() => onViewWork && onViewWork(project._id)}
+            activeOpacity={0.7}
+        >
+            <View style={{ flexDirection: 'row' }}>
+                {project.afterImages && project.afterImages.length > 0 && (
+                    <Image source={{ uri: project.afterImages[0] }} style={styles.thumbnail} />
+                )}
+                <View style={{ flex: 1 }}>
+                    <View style={styles.projectHeader}>
+                        <View style={[styles.statusDot, { backgroundColor: statusColor(project.status) }]} />
+                        <Text style={styles.projectType}>{project.type.toUpperCase()}</Text>
+                        {project.distance !== undefined && (
+                            <View style={styles.distBadge}>
+                                <Text style={styles.distText}>{Math.round(project.distance)}m</Text>
+                            </View>
+                        )}
+                    </View>
+                    <Text style={styles.projectName}>{project.name}</Text>
+                    <Text style={styles.projectDesc} numberOfLines={2}>{project.description}</Text>
+                    {isHighlight && project.areaImpact && (
+                        <View style={styles.impactBadge}>
+                            <Text style={styles.impactText}>✨ {project.areaImpact}</Text>
+                        </View>
+                    )}
+                    <View style={styles.projectFooter}>
+                        <Text style={styles.projectBudget}>{formatBudget(project.budget)}</Text>
+                        <Text style={[styles.projectStatus, { color: statusColor(project.status) }]}>
+                            {project.status.replace('_', ' ').toUpperCase()}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
 
     return (
         <View style={styles.container}>
@@ -189,10 +240,18 @@ export default function HomeScreen() {
                             
                             {Platform.OS === 'web' ? (
                                 <View style={styles.mapContainer}>
-                                    <iframe
-                                        srcDoc={generateLeafletHtml()}
-                                        style={{ width: '100%', height: 220, border: 'none', borderRadius: 12 }}
-                                    />
+                                    <View style={{ position: 'relative' }}>
+                                        <iframe
+                                            srcDoc={generateLeafletHtml()}
+                                            style={{ width: '100%', height: 220, border: 'none', borderRadius: 12 }}
+                                        />
+                                        <TouchableOpacity 
+                                            style={styles.expandBtn}
+                                            onPress={() => setIsMapExpanded(true)}
+                                        >
+                                            <Text style={{fontSize: 18}}>⛶</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             ) : (
                                 <View style={styles.mapPlaceholder}>
@@ -259,30 +318,32 @@ export default function HomeScreen() {
                         <Text style={styles.muted}>No projects found yet.</Text>
                     </View>
                 ) : (
-                    allProjects.map((project: any) => (
-                        <View key={project._id} style={styles.projectCard}>
-                            <View style={styles.projectHeader}>
-                                <View style={[styles.statusDot, { backgroundColor: statusColor(project.status) }]} />
-                                <Text style={styles.projectType}>{project.type.toUpperCase()}</Text>
-                            </View>
-                            <Text style={styles.projectName}>{project.name}</Text>
-                            <Text style={styles.projectDesc} numberOfLines={2}>{project.description}</Text>
-                            <View style={styles.projectFooter}>
-                                <Text style={styles.projectBudget}>₹{(project.budget / 10000000).toFixed(1)} Cr</Text>
-                                <Text style={[styles.projectStatus, { color: statusColor(project.status) }]}>
-                                    {project.status.replace('_', ' ').toUpperCase()}
-                                </Text>
-                            </View>
-                        </View>
-                    ))
+                    allProjects.map((project: any) => renderProjectCard(project, false))
                 )}
             </ScrollView>
+
+            {/* Map Expanded Modal */}
+            <Modal visible={isMapExpanded} transparent={false} animationType="slide">
+                <View style={styles.expandedMapContainer}>
+                    <TouchableOpacity style={styles.closeMapBtn} onPress={() => setIsMapExpanded(false)}>
+                        <Text style={{color: 'white', fontWeight: 'bold', fontSize: 16}}>✕ Close</Text>
+                    </TouchableOpacity>
+                    {Platform.OS === 'web' && location ? (
+                        <iframe
+                            srcDoc={generateLeafletHtml().replace('height: 220px', 'height: 100vh')}
+                            style={{ width: '100%', height: '100%', border: 'none' }}
+                        />
+                    ) : null}
+                </View>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0a0f1e', paddingHorizontal: 16, paddingTop: 50 },
+    expandedMapContainer: { flex: 1, backgroundColor: '#0a0f1e', width: '100%', height: '100%' },
+    closeMapBtn: { position: 'absolute', top: 50, right: 20, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
     header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1e3a5f', alignItems: 'center', justifyContent: 'center' },
     avatarText: { color: '#00d4ff', fontWeight: 'bold', fontSize: 16 },
@@ -303,6 +364,7 @@ const styles = StyleSheet.create({
     gpsValue: { fontSize: 14, color: '#00d4ff', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontWeight: 'bold', marginTop: 4 },
     muted: { color: '#4b5563', textAlign: 'center', fontSize: 13, paddingVertical: 12 },
     mapContainer: { borderRadius: 14, overflow: 'hidden', marginTop: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    expandBtn: { position: 'absolute', top: 10, right: 10, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
     mapPlaceholder: { backgroundColor: '#1a2332', borderRadius: 12, padding: 24, alignItems: 'center', marginTop: 8 },
     mapText: { fontSize: 14, color: '#6b7280' },
     mapSub: { fontSize: 11, color: '#4b5563', marginTop: 4 },
@@ -316,6 +378,7 @@ const styles = StyleSheet.create({
     projectCardHighlight: { backgroundColor: '#111827', borderRadius: 16, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(0,212,255,0.3)', shadowColor: '#00d4ff', shadowOpacity: 0.05, shadowRadius: 5 },
     projectHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    thumbnail: { width: 70, height: 70, borderRadius: 12, marginRight: 14, alignSelf: 'center', backgroundColor: '#1f2937' },
     projectType: { fontSize: 10, color: '#6b7280', letterSpacing: 1, fontWeight: '700', flex: 1 },
     projectName: { fontSize: 17, fontWeight: '800', color: '#f3f4f6', marginBottom: 6 },
     projectDesc: { fontSize: 14, color: '#9ca3af', lineHeight: 22, marginBottom: 14 },

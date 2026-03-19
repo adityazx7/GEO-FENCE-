@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
     StyleSheet, Text, View, TextInput, TouchableOpacity,
-    ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert
+    ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Image, Modal
 } from 'react-native';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { useMutation } from 'convex/react';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +27,7 @@ const STATUSES = [
 export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
     const { user } = useAuth();
     const createWork = useMutation('projects:createWork' as any);
+    const generateUploadUrl = useMutation('files:generateUploadUrl' as any);
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -36,10 +38,11 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
     const [lat, setLat] = useState('');
     const [lng, setLng] = useState('');
     const [address, setAddress] = useState('');
-    const [beforeImageUrls, setBeforeImageUrls] = useState('');
-    const [afterImageUrls, setAfterImageUrls] = useState('');
+    const [beforeImages, setBeforeImages] = useState<string[]>([]);
+    const [afterImages, setAfterImages] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
 
     // Auto-fill GPS coordinates
     useEffect(() => {
@@ -55,6 +58,36 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
         })();
     }, []);
 
+    const pickImage = async (type: 'before' | 'after') => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets && result.assets[0].uri) {
+            if (type === 'before') {
+                setBeforeImages([...beforeImages, result.assets[0].uri]);
+            } else {
+                setAfterImages([...afterImages, result.assets[0].uri]);
+            }
+        }
+    };
+
+    const uploadImage = async (imageUri: string) => {
+        const postUrl = await generateUploadUrl();
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        const result = await fetch(postUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': blob.type },
+            body: blob,
+        });
+        const { storageId } = await result.json();
+        return storageId;
+    };
+
     const handleSubmit = async () => {
         if (!title || !description || !budget || !lat || !lng || !address) {
             setError('Please fill all required fields.');
@@ -63,8 +96,9 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
         setError('');
         setLoading(true);
         try {
-            const beforeImgs = beforeImageUrls.trim() ? beforeImageUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
-            const afterImgs = afterImageUrls.trim() ? afterImageUrls.split(',').map(s => s.trim()).filter(Boolean) : [];
+            // Upload all images and collect their storage IDs
+            const beforeStorageIds = await Promise.all(beforeImages.map(uri => uploadImage(uri)));
+            const afterStorageIds = await Promise.all(afterImages.map(uri => uploadImage(uri)));
 
             await (createWork as any)({
                 name: title,
@@ -80,14 +114,14 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
                     address,
                 },
                 submittedBy: user?.email || 'unknown',
-                beforeImages: beforeImgs.length > 0 ? beforeImgs : undefined,
-                afterImages: afterImgs.length > 0 ? afterImgs : undefined,
+                beforeImages: beforeStorageIds.length > 0 ? beforeStorageIds : undefined,
+                afterImages: afterStorageIds.length > 0 ? afterStorageIds : undefined,
             });
 
             Alert.alert('✅ Success', 'Work submitted successfully! Citizens nearby will see it.');
             // Reset form
             setTitle(''); setDescription(''); setAreaImpact(''); setBudget('');
-            setBeforeImageUrls(''); setAfterImageUrls(''); setAddress('');
+            setBeforeImages([]); setAfterImages([]); setAddress('');
             onDone();
         } catch (e: any) {
             setError(e?.message || e?.data || 'Failed to submit.');
@@ -156,7 +190,12 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
 
                 {/* Location */}
                 <View style={styles.divider} />
-                <Text style={styles.sectionHead}>📍 Location</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <Text style={styles.sectionHead}>📍 Location</Text>
+                    <TouchableOpacity style={styles.pickMapBtn} onPress={() => setIsMapPickerOpen(true)}>
+                        <Text style={styles.pickMapBtnText}>🗺️ Pick on Map</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <View style={styles.rowInputs}>
                     <View style={{ flex: 1, marginRight: 6 }}>
@@ -177,24 +216,120 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
 
                 {/* Images */}
                 <View style={styles.divider} />
-                <Text style={styles.sectionHead}>📷 Images</Text>
-                <Text style={styles.hint}>Paste image URLs separated by commas. Multiple images allowed.</Text>
+                <Text style={styles.sectionHead}>📷 Upload Project Photos</Text>
+                
+                <Text style={styles.label}>Before Images</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                    {beforeImages.map((uri, idx) => (
+                        <View key={idx} style={{ position: 'relative', marginRight: 10 }}>
+                            <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10 }} />
+                            <TouchableOpacity style={styles.removePicBtn} onPress={() => setBeforeImages(beforeImages.filter((_, i) => i !== idx))}>
+                                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={styles.addPicBtn} onPress={() => pickImage('before')}>
+                        <Text style={{ color: '#00d4ff', fontSize: 24, fontWeight: 'bold' }}>+</Text>
+                    </TouchableOpacity>
+                </ScrollView>
 
-                <Text style={styles.label}>Before Images (URLs)</Text>
-                <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
-                    value={beforeImageUrls} onChangeText={setBeforeImageUrls} multiline
-                    placeholder="https://example.com/before1.jpg, https://..." placeholderTextColor="#4b5563" />
-
-                <Text style={styles.label}>After Images (URLs)</Text>
-                <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
-                    value={afterImageUrls} onChangeText={setAfterImageUrls} multiline
-                    placeholder="https://example.com/after1.jpg, https://..." placeholderTextColor="#4b5563" />
-
+                <Text style={styles.label}>After Images</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                    {afterImages.map((uri, idx) => (
+                        <View key={idx} style={{ position: 'relative', marginRight: 10 }}>
+                            <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10 }} />
+                            <TouchableOpacity style={styles.removePicBtn} onPress={() => setAfterImages(afterImages.filter((_, i) => i !== idx))}>
+                                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={styles.addPicBtn} onPress={() => pickImage('after')}>
+                        <Text style={{ color: '#00d4ff', fontSize: 24, fontWeight: 'bold' }}>+</Text>
+                    </TouchableOpacity>
+                </ScrollView>
                 {/* Submit */}
                 <TouchableOpacity style={styles.btn} onPress={handleSubmit} disabled={loading}>
                     {loading ? <ActivityIndicator color="#080d18" /> : <Text style={styles.btnText}>Submit Work</Text>}
                 </TouchableOpacity>
             </ScrollView>
+
+            <Modal visible={isMapPickerOpen} animationType="slide">
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Select Location</Text>
+                        <TouchableOpacity style={styles.closeModalBtn} onPress={() => setIsMapPickerOpen(false)}>
+                            <Text style={{ color: 'white' }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {Platform.OS === 'web' ? (
+                        <iframe
+                            style={{ flex: 1, width: '100%', border: 'none' }}
+                            srcDoc={`
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+                                    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+                                    <style>
+                                        body, html, #map { margin: 0; padding: 0; height: 100%; height: 100vh; background: #0a0f1e; }
+                                        .leaflet-container { background: #0a0f1e; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div id="map"></div>
+                                    <script>
+                                        const map = L.map('map').setView([${lat || 19.0176}, ${lng || 72.8562}], 15);
+                                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                                            attribution: '&copy; OpenStreetMap'
+                                        }).addTo(map);
+
+                                        let marker = L.marker([${lat || 19.0176}, ${lng || 72.8562}], { draggable: true }).addTo(map);
+
+                                        map.on('click', function(e) {
+                                            const { lat, lng } = e.latlng;
+                                            marker.setLatLng([lat, lng]);
+                                            window.parent.postMessage({ type: 'locationSelected', lat, lng }, '*');
+                                        });
+
+                                        marker.on('dragend', function(e) {
+                                            const { lat, lng } = marker.getLatLng();
+                                            window.parent.postMessage({ type: 'locationSelected', lat, lng }, '*');
+                                        });
+
+                                        // Pulse for current location
+                                        if (${lat && lng}) {
+                                             L.circle([${lat}, ${lng}], {
+                                                color: '#00d4ff',
+                                                fillColor: '#00d4ff',
+                                                fillOpacity: 0.2,
+                                                radius: 100
+                                            }).addTo(map);
+                                        }
+                                    </script>
+                                </body>
+                                </html>
+                            `}
+                            onLoad={() => {
+                                window.onmessage = (e) => {
+                                    if (e.data.type === 'locationSelected') {
+                                        setLat(e.data.lat.toFixed(6));
+                                        setLng(e.data.lng.toFixed(6));
+                                    }
+                                };
+                            }}
+                        />
+                    ) : (
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ color: 'white' }}>Map Picker only available on Web for now.</Text>
+                        </View>
+                    )}
+
+                    <TouchableOpacity style={styles.saveLocBtn} onPress={() => setIsMapPickerOpen(false)}>
+                        <Text style={styles.btnText}>Set This Location</Text>
+                    </TouchableOpacity>
+                </View>
+            </Modal>
         </KeyboardAvoidingView>
     );
 }
@@ -216,4 +351,13 @@ const styles = StyleSheet.create({
     sectionHead: { fontSize: 16, fontWeight: 'bold', color: '#e5e7eb', marginBottom: 14 },
     rowInputs: { flexDirection: 'row' },
     hint: { fontSize: 11, color: '#374151', marginBottom: 12, fontStyle: 'italic' },
+    addPicBtn: { width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#00d4ff', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,212,255,0.05)' },
+    removePicBtn: { position: 'absolute', top: -5, right: -5, backgroundColor: '#ef4444', width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    pickMapBtn: { backgroundColor: 'rgba(0,212,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,212,255,0.3)' },
+    pickMapBtnText: { color: '#00d4ff', fontSize: 12, fontWeight: '600' },
+    modalContainer: { flex: 1, backgroundColor: '#0a0f1e' },
+    modalHeader: { height: 70, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    modalTitle: { color: '#f3f4f6', fontSize: 18, fontWeight: 'bold' },
+    closeModalBtn: { padding: 10 },
+    saveLocBtn: { position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: '#00d4ff', padding: 16, borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 10 },
 });
