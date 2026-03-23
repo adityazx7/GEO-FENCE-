@@ -37,7 +37,8 @@ export default defineSchema({
         orgDescription: v.optional(v.string()),
 
         segment: v.optional(v.string()),
-        language: v.optional(v.string()),
+        preferredLanguage: v.optional(v.string()),
+        motherTongue: v.optional(v.string()),
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -114,7 +115,11 @@ export default defineSchema({
             lng: v.number(),
             address: v.string(),
         }),
-        submittedBy: v.optional(v.string()), // org user email
+        authorName: v.optional(v.string()), // Name of org or user
+        authorId: v.optional(v.id("users")), // Link to user record
+        submittedBy: v.optional(v.string()), // Legacy email field
+        likes: v.optional(v.number()),
+        dislikes: v.optional(v.number()),
         beforeImages: v.optional(v.array(v.string())), // base64 or URLs
         afterImages: v.optional(v.array(v.string())),  // base64 or URLs
         boothId: v.optional(v.id("booths")),
@@ -122,7 +127,8 @@ export default defineSchema({
         updatedAt: v.number(),
     })
         .index("by_status", ["status"])
-        .index("by_type", ["type"]),
+        .index("by_type", ["type"])
+        .index("by_authorId", ["authorId"]),
 
     // ====== NOTIFICATIONS ======
     notifications: defineTable({
@@ -163,6 +169,27 @@ export default defineSchema({
     })
         .index("by_constituency", ["constituency"])
         .index("by_boothNumber", ["boothNumber"]),
+
+    // ====== PROJECT INTERACTIONS (LIKES/DISLIKES/READS) ======
+    interactions: defineTable({
+        projectId: v.id("projects"),
+        userId: v.string(), // email or clerkId
+        type: v.union(v.literal("like"), v.literal("dislike"), v.literal("read")),
+        createdAt: v.number(),
+    })
+        .index("by_project", ["projectId"])
+        .index("by_user_project", ["userId", "projectId"])
+        .index("by_user_type", ["userId", "type"]),
+
+    // ====== COMMENTS ======
+    comments: defineTable({
+        projectId: v.id("projects"),
+        userId: v.string(),
+        authorName: v.string(),
+        text: v.string(),
+        createdAt: v.number(),
+    })
+        .index("by_project", ["projectId"]),
 
     // ====== ANALYTICS EVENTS ======
     analyticsEvents: defineTable({

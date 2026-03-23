@@ -1,54 +1,52 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { api } from "./_generated/api";
 
-export const generateNotification = action({
+export const translateText = action({
     args: {
-        projectId: v.id("projects"),
-        language: v.optional(v.string())
+        text: v.string(),
+        targetLanguage: v.string(),
     },
     handler: async (ctx, args) => {
+        // Initialize Gemini
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            throw new Error("GEMINI_API_KEY not found in environment variables");
+            console.warn("GEMINI_API_KEY is not set in environment variables. Falling back to original text.");
+            return args.text;
         }
 
-        const project = await ctx.runQuery(api.projects.getById, { id: args.projectId });
+        try {
+            console.log("Checking API Key length:", apiKey.length);
+            const trimmedKey = apiKey.trim();
+            const genAI = new GoogleGenerativeAI(trimmedKey);
+            
+            // Switching to gemini-flash-latest as gemini-2.0-flash reported limit:0 (quota not provisioned)
+            const modelName = "gemini-flash-latest"; 
+            console.log("Attempting translation with model:", modelName);
+            
+            const model = genAI.getGenerativeModel({ model: modelName });
 
-        if (!project) {
-            throw new Error("Project not found");
+            const prompt = `Translate the following text into ${args.targetLanguage}. Only return the direct translation, nothing else.\nText: "${args.text}"`;
+
+            const result = await model.generateContent(prompt);
+            const response = result.response;
+            const translated = response.text().trim();
+            
+            if (!translated) {
+                console.warn("Gemini returned empty text, falling back to original.");
+                return args.text;
+            }
+            
+            console.log("Translation successful!");
+            return translated;
+        } catch (e: any) {
+            console.error("Gemini Translation Error Details:", JSON.stringify({
+                message: e?.message,
+                status: e?.status,
+                statusText: e?.statusText,
+                name: e?.name
+            }, null, 2));
+            return args.text; // Fallback to original text if API fails
         }
-
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-        const prompt = `
-      You are an automated civic engagement AI for the Hyper-Local Targeting Engine.
-      Write a short, empathetic 2-sentence SMS notification for a citizen who just entered the geo-fence for the following government project.
-      
-      Project Name: "${project.name}"
-      Description: "${project.description}"
-      Impact: "${project.impact}"
-      Status: "${project.status}"
-
-      Output ONLY the SMS text in ${args.language || 'English'}. 
-      Do not include quotes around the text. Do not include greetings or conversational filler.
-      Make it directly address the citizen, explaining how the project helps them (e.g. saving time, improving health).
-    `;
-
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().trim();
-
-        // Call the existing send mutation to log it in the database
-        await ctx.runMutation(api.notifications.send, {
-            projectId: args.projectId,
-            title: `AI Proximity Alert: ${project.name}`,
-            content: text,
-            type: "proximity_alert",
-            language: args.language || "en",
-        });
-
-        return text;
-    }
+    },
 });

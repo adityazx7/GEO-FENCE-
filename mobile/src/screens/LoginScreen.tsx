@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useAction } from 'convex/react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LoginScreen({ onNavigate }: { onNavigate: (screen: string) => void }) {
     const [email, setEmail] = useState('');
@@ -13,6 +14,8 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
     const [loading, setLoading] = useState(false);
     const { login, setPendingEmail } = useAuth();
     const loginAction = useAction('auth:login' as any);
+    const { colors, isDark } = useTheme();
+    const styles = createStyles(colors, isDark);
 
     const handleLogin = async () => {
         if (!email || !password) { setError('Please fill in all fields.'); return; }
@@ -38,7 +41,7 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
                 <View style={styles.logoBox}>
-                    <Text style={styles.logo}>CivicSentinel<Text style={{ color: '#00d4ff' }}>AI</Text></Text>
+                    <Text style={styles.logo}>CivicSentinel<Text style={{ color: colors.primary }}>AI</Text></Text>
                     <Text style={styles.tagline}>Hyper-Local Governance Engine</Text>
                 </View>
 
@@ -54,7 +57,7 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
                         value={email}
                         onChangeText={setEmail}
                         placeholder="you@example.com"
-                        placeholderTextColor="#4b5563"
+                        placeholderTextColor={colors.textMuted}
                         keyboardType="email-address"
                         autoCapitalize="none"
                     />
@@ -65,16 +68,16 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
                         value={password}
                         onChangeText={setPassword}
                         placeholder="Enter your password"
-                        placeholderTextColor="#4b5563"
+                        placeholderTextColor={colors.textMuted}
                         secureTextEntry
                     />
 
                     <TouchableOpacity style={styles.btn} onPress={handleLogin} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#080d18" /> : <Text style={styles.btnText}>Sign In</Text>}
+                        {loading ? <ActivityIndicator color={isDark ? '#080d18' : colors.card} /> : <Text style={styles.btnText}>Sign In</Text>}
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => onNavigate('register')} style={{ marginTop: 20 }}>
-                        <Text style={styles.link}>Don't have an account? <Text style={{ color: '#00d4ff', fontWeight: '600' }}>Register</Text></Text>
+                    <TouchableOpacity onPress={() => onNavigate('register')} style={{ marginTop: 24 }}>
+                        <Text style={styles.link}>Don't have an account? <Text style={{ color: colors.primary, fontWeight: '700' }}>Register</Text></Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
@@ -82,19 +85,19 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0f1e' },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
     scroll: { flexGrow: 1, justifyContent: 'center', padding: 20 },
     logoBox: { alignItems: 'center', marginBottom: 40 },
-    logo: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-    tagline: { fontSize: 12, color: '#6b7280', marginTop: 4 },
-    card: { backgroundColor: '#111827', borderRadius: 20, padding: 28, borderWidth: 1, borderColor: 'rgba(0,212,255,0.1)' },
-    heading: { fontSize: 22, fontWeight: 'bold', color: '#f3f4f6', marginBottom: 4 },
-    sub: { fontSize: 13, color: '#6b7280', marginBottom: 24 },
-    label: { fontSize: 12, color: '#9ca3af', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
-    input: { backgroundColor: '#1f2937', borderRadius: 12, padding: 14, color: '#f3f4f6', fontSize: 15, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-    btn: { backgroundColor: '#00d4ff', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
-    btnText: { color: '#080d18', fontWeight: 'bold', fontSize: 16 },
-    error: { color: '#ef4444', fontSize: 13, marginBottom: 16, backgroundColor: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 10 },
-    link: { textAlign: 'center', color: '#9ca3af', fontSize: 14 },
+    logo: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+    tagline: { fontSize: 13, color: colors.textMuted, marginTop: 4, letterSpacing: 0.5 },
+    card: { backgroundColor: colors.card, borderRadius: 24, padding: 28, borderWidth: 1, borderColor: colors.transparentBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    heading: { fontSize: 24, fontWeight: 'bold', color: colors.text, marginBottom: 6 },
+    sub: { fontSize: 14, color: colors.textMuted, marginBottom: 28 },
+    label: { fontSize: 12, color: colors.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '600' },
+    input: { backgroundColor: colors.inputBg, borderRadius: 14, padding: 16, color: colors.text, fontSize: 15, marginBottom: 20, borderWidth: 1, borderColor: colors.transparentBorder },
+    btn: { backgroundColor: colors.primary, borderRadius: 14, padding: 18, alignItems: 'center', marginTop: 8 },
+    btnText: { color: isDark ? '#080d18' : colors.card, fontWeight: 'bold', fontSize: 16 },
+    error: { color: colors.danger, fontSize: 13, marginBottom: 20, backgroundColor: 'rgba(239,68,68,0.1)', padding: 14, borderRadius: 12, overflow: 'hidden' },
+    link: { textAlign: 'center', color: colors.textMuted, fontSize: 14 },
 });

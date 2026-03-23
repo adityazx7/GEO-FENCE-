@@ -2,9 +2,14 @@ import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useQuery } from 'convex/react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { Bell, MapPin, ArrowRight, CheckCircle2, Hammer, ClipboardList, AlertTriangle } from 'lucide-react-native';
 
 export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: string) => void }) {
     const { user } = useAuth();
+    const { colors } = useTheme();
+    const styles = createStyles(colors);
+
     const projects = useQuery('projects:list' as any) || [];
     const notifications = useQuery('notifications:listAll' as any) || [];
 
@@ -15,7 +20,15 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
             return p.location?.address?.toLowerCase().includes(user.state.toLowerCase());
         });
 
-    const statusEmoji = (s: string) => s === 'completed' ? '✅' : s === 'in_progress' ? '🔨' : s === 'planned' ? '📋' : '⚠️';
+    const StatusIcon = ({ status }: { status: string }) => {
+        switch(status) {
+            case 'completed': return <CheckCircle2 color={colors.success} size={20} />;
+            case 'in_progress': return <Hammer color={colors.warning} size={20} />;
+            case 'planned': return <ClipboardList color={colors.primary} size={20} />;
+            default: return <AlertTriangle color={colors.iconDefault} size={20} />;
+        }
+    };
+
     const timeAgo = (ts: number) => {
         const diff = Date.now() - ts;
         if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
@@ -31,7 +44,8 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
 
                 {notifications.length > 0 && (
                     <View style={styles.notifBanner}>
-                        <Text style={styles.notifBannerText}>🔔 {notifications.length} updates from the government</Text>
+                        <Bell color={colors.primary} size={16} />
+                        <Text style={styles.notifBannerText}>{notifications.length} updates from the government</Text>
                     </View>
                 )}
 
@@ -48,7 +62,7 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
                             activeOpacity={0.75}
                         >
                             <View style={styles.newsHeader}>
-                                <Text style={styles.newsEmoji}>{statusEmoji(project.status)}</Text>
+                                <StatusIcon status={project.status} />
                                 <View style={{ flex: 1, marginHorizontal: 10 }}>
                                     <Text style={styles.newsType}>{project.type.toUpperCase()}</Text>
                                     <Text style={styles.newsTime}>{timeAgo(project.createdAt)}</Text>
@@ -58,8 +72,11 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
                             <Text style={styles.newsTitle}>{project.name}</Text>
                             <Text style={styles.newsDesc} numberOfLines={2}>{project.description}</Text>
                             <View style={styles.newsFooter}>
-                                <Text style={styles.newsLocation}>📍 {project.location?.address || 'N/A'}</Text>
-                                <Text style={styles.newsArrow}>→</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <MapPin color={colors.textMuted} size={14} />
+                                    <Text style={styles.newsLocation}> {project.location?.address || 'N/A'}</Text>
+                                </View>
+                                <ArrowRight color={colors.primary} size={18} />
                             </View>
                         </TouchableOpacity>
                     ))
@@ -69,23 +86,21 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0f1e', paddingHorizontal: 16, paddingTop: 50 },
-    pageTitle: { fontSize: 22, fontWeight: 'bold', color: '#f3f4f6', marginBottom: 4 },
-    pageSub: { fontSize: 12, color: '#6b7280', marginBottom: 20 },
-    notifBanner: { backgroundColor: 'rgba(0,212,255,0.08)', borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(0,212,255,0.15)' },
-    notifBannerText: { color: '#00d4ff', fontSize: 13, fontWeight: '600', textAlign: 'center' },
-    emptyCard: { backgroundColor: '#111827', borderRadius: 14, padding: 24, alignItems: 'center' },
-    muted: { color: '#4b5563', textAlign: 'center', fontSize: 13 },
-    newsCard: { backgroundColor: '#111827', borderRadius: 14, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
-    newsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    newsEmoji: { fontSize: 20 },
-    newsType: { fontSize: 10, color: '#6b7280', letterSpacing: 1, fontWeight: '600' },
-    newsTime: { fontSize: 10, color: '#374151' },
-    newsBudget: { fontSize: 13, fontWeight: 'bold', color: '#00d4ff' },
-    newsTitle: { fontSize: 16, fontWeight: '700', color: '#e5e7eb', marginBottom: 6 },
-    newsDesc: { fontSize: 13, color: '#9ca3af', lineHeight: 20, marginBottom: 12 },
-    newsFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    newsLocation: { fontSize: 11, color: '#4b5563' },
-    newsArrow: { fontSize: 16, color: '#00d4ff', fontWeight: 'bold' },
+const createStyles = (colors: any) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 50 },
+    pageTitle: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+    pageSub: { fontSize: 13, color: colors.textMuted, marginBottom: 20 },
+    notifBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.transparentPrimary, borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: colors.transparentBorder },
+    notifBannerText: { color: colors.primary, fontSize: 13, fontWeight: '600', marginLeft: 8 },
+    emptyCard: { backgroundColor: colors.card, borderRadius: 14, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: colors.transparentBorder },
+    muted: { color: colors.textMuted, textAlign: 'center', fontSize: 13 },
+    newsCard: { backgroundColor: colors.card, borderRadius: 14, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: colors.transparentBorder },
+    newsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    newsType: { fontSize: 10, color: colors.textMuted, letterSpacing: 1, fontWeight: '600' },
+    newsTime: { fontSize: 10, color: colors.iconDefault, marginTop: 2 },
+    newsBudget: { fontSize: 13, fontWeight: 'bold', color: colors.primary },
+    newsTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 },
+    newsDesc: { fontSize: 13, color: colors.textMuted, lineHeight: 20, marginBottom: 16 },
+    newsFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.transparentBorder, paddingTop: 12 },
+    newsLocation: { fontSize: 12, color: colors.textMuted },
 });

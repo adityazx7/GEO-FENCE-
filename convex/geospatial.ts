@@ -1,4 +1,4 @@
-"use node";
+
 
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
@@ -66,16 +66,30 @@ export const calculateProximity = action({
                     metadata: JSON.stringify({ projectId: project._id, distance: distanceMeters })
                 });
 
-                // 2. Trigger Gemini AI to generate custom SMS alert sent to citizen!
-                const language = Math.random() > 0.5 ? "English" : "Marathi";
-                await ctx.runAction(api.ai.generateNotification, { projectId: project._id, language });
+                // 2. Generate content and send a real database notification
+                const prefLang = "English"; // Could be fetched from user record in a real app
+                const content = await ctx.runAction(api.ai.translateText, { 
+                    text: project.impact || "New infrastructure update nearby!", 
+                    targetLanguage: prefLang 
+                });
 
-                // 3. Increment the Geo-Fence Global Trigger Count for the Dashboard
-                await ctx.runMutation(api.geoFences.incrementByProjectId, { projectId: project._id });
+                const notificationId = await ctx.runMutation(api.notifications.sendUniqueProximityAlert, {
+                    userId: args.citizenId,
+                    projectId: project._id,
+                    title: project.name,
+                    content: content,
+                    language: prefLang
+                });
 
-                // In a production system, we'd break here or add idempotency checks
-                // so we don't spam the user 10 times if they are near 10 projects at once.
-                break;
+                if (notificationId) {
+                    triggeredAnAlert = true;
+                    // Increment the Geo-Fence Global Trigger Count for the Dashboard
+                    await ctx.runMutation(api.geoFences.incrementByProjectId, { projectId: project._id });
+                    
+                    // We break here to avoid spamming multiple notifications in one ping.
+                    // The next ping (10m away) will catch the next project if applicable.
+                    break;
+                }
             }
         }
 

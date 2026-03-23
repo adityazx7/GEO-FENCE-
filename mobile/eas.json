@@ -9,7 +9,13 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://limitless-poodle-869.convex.cloud"
+      }
     },
     "production": {
       "autoIncrement": true

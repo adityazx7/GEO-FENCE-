@@ -1,4 +1,4 @@
-"use node";
+
 
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
@@ -52,9 +52,12 @@ export const syncProjects = action({
                     name: `OGD: ${facilityName}`,
                     description: `Government facility located in ${district}, ${state}. Data sourced natively from data.gov.in`,
                     type: "hospital",
-                    status: "completed", // Assuming existing facility
+                    status: "completed",
                     budget: Math.floor(Math.random() * 5000000) + 100000,
                     impact: "Provides essential healthcare services to the local district.",
+                    authorName: "OGD Platform India",
+                    likes: 0,
+                    dislikes: 0,
                     location: {
                         lat,
                         lng,

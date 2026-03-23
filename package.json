@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "app": "cd mobile && npx expo start --clear",
+    "dev:all": "npx concurrently \"npm run dev\" \"npx convex dev\" \"npm run app\""
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.1",
@@ -15,6 +17,7 @@
     "@react-three/fiber": "^9.5.0",
     "clsx": "^2.1.1",
     "convex": "^1.32.0",
+    "expo": "^55.0.8",
     "framer-motion": "^12.35.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.577.0",
@@ -23,6 +26,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-leaflet": "^5.0.0",
+    "react-native-web": "^0.21.0",
     "recharts": "^3.7.0",
     "three": "^0.183.2"
   },

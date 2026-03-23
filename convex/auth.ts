@@ -40,6 +40,8 @@ export const register = action({
         orgContactPerson: v.optional(v.string()),
         orgWebsite: v.optional(v.string()),
         orgDescription: v.optional(v.string()),
+        preferredLanguage: v.optional(v.string()),
+        motherTongue: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<any> => {
         // Check if email already registered
@@ -49,31 +51,30 @@ export const register = action({
         }
 
         const passwordHash = await hashPassword(args.password);
-
-        // Create user
-        const userId = await ctx.runMutation(internal.authHelpers.insertUser, {
-            name: args.name,
-            email: args.email,
-            passwordHash,
-            userType: args.userType,
-            role: args.userType === "citizen" ? "citizen" : "operator",
-            state: args.state,
-            city: args.city,
-            age: args.age,
-            aadhaar: args.aadhaar,
-            orgName: args.orgName,
-            orgType: args.orgType,
-            orgRegistrationNumber: args.orgRegistrationNumber,
-            orgContactPerson: args.orgContactPerson,
-            orgWebsite: args.orgWebsite,
-            orgDescription: args.orgDescription,
-        });
-
-        // Generate verification code
         const code = generate6DigitCode();
-        await ctx.runMutation(internal.authHelpers.insertVerificationCode, {
-            email: args.email,
-            code,
+
+        // Create user and verification code in one atomic mutation
+        const userId = await ctx.runMutation(internal.authHelpers.completeRegistration, {
+            userData: {
+                name: args.name,
+                email: args.email.trim().toLowerCase(),
+                passwordHash,
+                userType: args.userType,
+                role: args.userType === "citizen" ? "citizen" : "operator",
+                state: args.state,
+                city: args.city,
+                age: args.age,
+                aadhaar: args.aadhaar,
+                orgName: args.orgName,
+                orgType: args.orgType,
+                orgRegistrationNumber: args.orgRegistrationNumber,
+                orgContactPerson: args.orgContactPerson,
+                orgWebsite: args.orgWebsite,
+                orgDescription: args.orgDescription,
+                preferredLanguage: args.preferredLanguage,
+                motherTongue: args.motherTongue,
+            },
+            verificationCode: code,
             expiresAt: Date.now() + 10 * 60 * 1000,
         });
 
@@ -92,7 +93,25 @@ export const login = action({
         password: v.string(),
     },
     handler: async (ctx, args): Promise<any> => {
-        const user = await ctx.runQuery(internal.authHelpers.getUserByEmail, { email: args.email });
+        let user = await ctx.runQuery(internal.authHelpers.getUserByEmail, { email: args.email });
+        
+        // FAIL-SAFE: If this is the demo org email and it's missing, seed it now
+        if (!user && args.email === "org@civicsentinel.in") {
+            console.log("Seeding missing demo user...");
+            const demoHash = "2618be5da8aefa55ea5834d506110cf6fab41a09236ffaa6798f8a1a83125a9c"; // alpha123
+            await ctx.runMutation(internal.authHelpers.seedUser, {
+                name: "CivicSentinel HQ",
+                email: args.email,
+                passwordHash: demoHash,
+                role: "operator",
+                userType: "organization",
+                state: "Maharashtra",
+                city: "Mumbai",
+            });
+            user = await ctx.runQuery(internal.authHelpers.getUserByEmail, { email: args.email });
+            user = await ctx.runQuery(internal.authHelpers.getUserByEmail, { email: args.email });
+        }
+
         if (!user) {
             throw new Error("No account found with this email.");
         }
@@ -118,6 +137,8 @@ export const login = action({
             avatar: user.avatar,
             orgName: user.orgName,
             orgType: user.orgType,
+            preferredLanguage: user.preferredLanguage,
+            motherTongue: user.motherTongue,
         };
     },
 });

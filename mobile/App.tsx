@@ -2,6 +2,7 @@ import React, { useState, Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -16,7 +17,7 @@ import AddWorkScreen from './src/screens/AddWorkScreen';
 import BottomNav from './src/components/BottomNav';
 
 // Convex connection
-const CONVEX_URL = 'http://127.0.0.1:3210';
+const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL || 'https://befitting-chipmunk-858.convex.cloud';
 const convex = new ConvexReactClient(CONVEX_URL);
 
 // Error boundary
@@ -49,6 +50,7 @@ type AppTab = 'home' | 'budget' | 'news' | 'addWork' | 'profile';
 
 function AppNavigator() {
     const { user, isLoading } = useAuth();
+    const { colors, isDark } = useTheme();
     const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
     const [activeTab, setActiveTab] = useState<AppTab>('home');
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -56,9 +58,9 @@ function AppNavigator() {
     // Loading state
     if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00d4ff" />
-                <Text style={styles.loadingText}>Loading CivicSentinel AI...</Text>
+            <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading CivicSentinel AI...</Text>
             </View>
         );
     }
@@ -89,7 +91,7 @@ function AppNavigator() {
     const renderTab = () => {
         switch (activeTab) {
             case 'home': return <HomeScreen onViewWork={(id) => setSelectedProjectId(id)} />;
-            case 'budget': return <BudgetScreen />;
+            case 'budget': return <BudgetScreen onViewProject={(id) => setSelectedProjectId(id)} />;
             case 'news': return <NewsScreen onViewWork={(id) => setSelectedProjectId(id)} />;
             case 'addWork': return <AddWorkScreen onDone={() => setActiveTab('home')} />;
             case 'profile': return <ProfileScreen />;
@@ -98,7 +100,7 @@ function AppNavigator() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#0a0f1e' }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             {renderTab()}
             <BottomNav
                 activeTab={activeTab}
@@ -112,11 +114,13 @@ function AppNavigator() {
 export default function App() {
     return (
         <ErrorBoundary>
-            <ConvexProvider client={convex}>
-                <AuthProvider>
-                    <AppNavigator />
-                </AuthProvider>
-            </ConvexProvider>
+            <ThemeProvider>
+                <ConvexProvider client={convex}>
+                    <AuthProvider>
+                        <AppNavigator />
+                    </AuthProvider>
+                </ConvexProvider>
+            </ThemeProvider>
         </ErrorBoundary>
     );
 }

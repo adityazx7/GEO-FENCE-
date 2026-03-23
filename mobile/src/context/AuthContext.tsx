@@ -12,6 +12,8 @@ interface User {
     avatar?: string;
     orgName?: string;
     orgType?: string;
+    preferredLanguage?: string;
+    motherTongue?: string;
 }
 
 interface AuthContextType {

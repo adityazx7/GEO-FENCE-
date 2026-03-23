@@ -22,15 +22,24 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.harshad122006.mobile"
+      "package": "com.harshad122006.mobile",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "a73667cc-422f-4c86-9bc9-a0ea0b270249"
+        "projectId": "a83a9af2-c867-4b98-b036-fdbd315ab5b3"
       }
-    }
+    },
+    "owner": "adityazx7"
   }
 }

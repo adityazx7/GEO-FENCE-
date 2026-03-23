@@ -49,6 +49,26 @@ export const verifyEmail = mutation({
     },
 });
 
+export const seedUser = internalMutation({
+    args: {
+        name: v.string(),
+        email: v.string(),
+        passwordHash: v.string(),
+        userType: v.union(v.literal("citizen"), v.literal("organization")),
+        role: v.union(v.literal("admin"), v.literal("citizen"), v.literal("operator")),
+        state: v.string(),
+        city: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("users", {
+            ...args,
+            isVerified: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+    },
+});
+
 export const insertUser = internalMutation({
     args: {
         name: v.string(),
@@ -69,6 +89,8 @@ export const insertUser = internalMutation({
         orgContactPerson: v.optional(v.string()),
         orgWebsite: v.optional(v.string()),
         orgDescription: v.optional(v.string()),
+        preferredLanguage: v.optional(v.string()),
+        motherTongue: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("users", {
@@ -77,6 +99,41 @@ export const insertUser = internalMutation({
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
+    },
+});
+
+export const completeRegistration = internalMutation({
+    args: {
+        userData: v.any(),
+        verificationCode: v.string(),
+        expiresAt: v.number(),
+    },
+    handler: async (ctx, args) => {
+        // Double check email uniqueness inside the transaction
+        const existing = await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", args.userData.email))
+            .unique();
+        
+        if (existing) {
+            throw new Error("An account with this email already exists.");
+        }
+
+        const userId = await ctx.db.insert("users", {
+            ...args.userData,
+            isVerified: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        await ctx.db.insert("verificationCodes", {
+            email: args.userData.email,
+            code: args.verificationCode,
+            expiresAt: args.expiresAt,
+            used: false,
+        });
+
+        return userId;
     },
 });
 

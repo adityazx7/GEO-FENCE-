@@ -101,6 +101,9 @@ export const seedDatabase = mutation({
             budget: 45000000,
             completionDate: "2025-12-15",
             impact: "Reduces hospital travel time by 45 minutes for 50,000 residents",
+            authorName: "CivicSentinel HQ",
+            likes: 0,
+            dislikes: 0,
             location: { lat: 19.0176, lng: 72.8562, address: "Tembhipada, Byculla, Mumbai 400027" },
             boothId: booth1,
             createdAt: Date.now(),
@@ -114,6 +117,9 @@ export const seedDatabase = mutation({
             status: "in_progress",
             budget: 120000000,
             impact: "Saves 20 minutes daily commute for 200,000 commuters",
+            authorName: "CivicSentinel HQ",
+            likes: 0,
+            dislikes: 0,
             location: { lat: 19.0282, lng: 72.8432, address: "Mahim-Dadar Link, Mumbai 400016" },
             boothId: booth2,
             createdAt: Date.now(),
@@ -127,6 +133,9 @@ export const seedDatabase = mutation({
             status: "in_progress",
             budget: 350000000,
             impact: "Connects 100,000 tech workers to metro network, reducing commute by 30 minutes",
+            authorName: "CivicSentinel HQ",
+            likes: 0,
+            dislikes: 0,
             location: { lat: 19.1197, lng: 72.8464, address: "Andheri East, Mumbai 400069" },
             boothId: booth3,
             createdAt: Date.now(),
@@ -140,6 +149,9 @@ export const seedDatabase = mutation({
             status: "planned",
             budget: 28000000,
             impact: "Benefits 3,500 students with world-class learning infrastructure",
+            authorName: "CivicSentinel HQ",
+            likes: 0,
+            dislikes: 0,
             location: { lat: 19.0596, lng: 72.8295, address: "Bandra West, Mumbai 400050" },
             boothId: booth4,
             createdAt: Date.now(),
@@ -297,5 +309,33 @@ export const seedDatabase = mutation({
         });
 
         return "Database seeded successfully!";
+    },
+});
+
+// ====== CLEAR DATABASE (to remove demo data) ======
+export const clearDatabase = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const tables = [
+            "projects", 
+            "geoFences", 
+            "notifications", 
+            "booths", 
+            "auditLog", 
+            "analyticsEvents", 
+            "interactions", 
+            "comments"
+        ];
+
+        let totalDeleted = 0;
+        for (const table of tables) {
+            const docs = await ctx.db.query(table as any).collect();
+            for (const doc of docs) {
+                await ctx.db.delete(doc._id);
+                totalDeleted++;
+            }
+        }
+
+        return `Successfully cleared ${totalDeleted} documents from demo tables. Users table was preserved.`;
     },
 });

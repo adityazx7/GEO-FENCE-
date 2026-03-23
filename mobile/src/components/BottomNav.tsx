@@ -1,75 +1,62 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
+import { Map, IndianRupee, Newspaper, User as UserIcon, Plus } from 'lucide-react-native';
 
 type Tab = 'home' | 'budget' | 'news' | 'addWork' | 'profile';
-
-const CITIZEN_TABS: { key: Tab; label: string; emoji: string }[] = [
-    { key: 'home', label: 'Home', emoji: '🏠' },
-    { key: 'budget', label: 'Budget', emoji: '💰' },
-    { key: 'news', label: 'News', emoji: '📰' },
-    { key: 'profile', label: 'Profile', emoji: '👤' },
-];
 
 export default function BottomNav({ activeTab, onTabChange, userType }: {
     activeTab: Tab;
     onTabChange: (tab: Tab) => void;
     userType: 'citizen' | 'organization';
 }) {
+    const { colors } = useTheme();
+    const styles = createStyles(colors);
     const isOrg = userType === 'organization';
 
     return (
         <View style={styles.container}>
-            {/* Home */}
-            <TabButton tab="home" label="Home" emoji="🏠" active={activeTab} onPress={onTabChange} />
-            {/* Budget */}
-            <TabButton tab="budget" label="Budget" emoji="💰" active={activeTab} onPress={onTabChange} />
+            <TabButton tab="home" label="Map" Icon={Map} active={activeTab} onPress={onTabChange} colors={colors} />
+            <TabButton tab="budget" label="Budget" Icon={IndianRupee} active={activeTab} onPress={onTabChange} colors={colors} />
 
             {/* Center: + button for org / News for citizen */}
             {isOrg ? (
-                <TouchableOpacity
-                    style={styles.fabContainer}
-                    onPress={() => onTabChange('addWork')}
-                    activeOpacity={0.8}
-                >
+                <TouchableOpacity style={styles.fabContainer} onPress={() => onTabChange('addWork')} activeOpacity={0.8}>
                     <View style={[styles.fab, activeTab === 'addWork' && styles.fabActive]}>
-                        <Text style={styles.fabText}>+</Text>
+                        <Plus color={activeTab === 'addWork' ? colors.background : colors.primary} size={24} />
                     </View>
                     <Text style={[styles.label, activeTab === 'addWork' && styles.labelActive]}>Add Work</Text>
                 </TouchableOpacity>
             ) : (
-                <TabButton tab="news" label="News" emoji="📰" active={activeTab} onPress={onTabChange} />
+                <TabButton tab="news" label="News" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
             )}
 
-            {/* News for org (shifted) */}
             {isOrg && (
-                <TabButton tab="news" label="News" emoji="📰" active={activeTab} onPress={onTabChange} />
+                <TabButton tab="news" label="News" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
             )}
 
-            {/* Profile */}
-            <TabButton tab="profile" label="Profile" emoji="👤" active={activeTab} onPress={onTabChange} />
+            <TabButton tab="profile" label="Profile" Icon={UserIcon} active={activeTab} onPress={onTabChange} colors={colors} />
         </View>
     );
 }
 
-function TabButton({ tab, label, emoji, active, onPress }: {
-    tab: Tab; label: string; emoji: string; active: Tab; onPress: (t: Tab) => void
-}) {
+function TabButton({ tab, label, Icon, active, onPress, colors }: any) {
     const isActive = active === tab;
     return (
-        <TouchableOpacity style={styles.tab} onPress={() => onPress(tab)} activeOpacity={0.7}>
-            <Text style={[styles.emoji, isActive && styles.emojiActive]}>{emoji}</Text>
-            <Text style={[styles.label, isActive && styles.labelActive]}>{label}</Text>
-            {isActive && <View style={styles.indicator} />}
+        <TouchableOpacity style={{ flex: 1, alignItems: 'center', paddingVertical: 6, position: 'relative' }} onPress={() => onPress(tab)} activeOpacity={0.7}>
+            <Icon color={isActive ? colors.primary : colors.iconDefault} size={22} style={{ marginBottom: 4 }} />
+            <Text style={{ fontSize: 10, color: isActive ? colors.primary : colors.textMuted, fontWeight: isActive ? '700' : '500' }}>{label}</Text>
+            {isActive && <View style={{ position: 'absolute', top: -10, width: 20, height: 3, borderRadius: 2, backgroundColor: colors.primary }} />}
         </TouchableOpacity>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flexDirection: 'row',
-        backgroundColor: '#111827',
+        backgroundColor: colors.card,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.06)',
+        borderTopColor: colors.border,
         paddingBottom: 20,
         paddingTop: 10,
         position: 'absolute',
@@ -77,50 +64,26 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
     },
-    tab: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: 6,
-        position: 'relative',
-    },
-    emoji: { fontSize: 20, marginBottom: 2, opacity: 0.5 },
-    emojiActive: { opacity: 1 },
-    label: { fontSize: 10, color: '#4b5563', fontWeight: '500' },
-    labelActive: { color: '#00d4ff', fontWeight: '700' },
-    indicator: {
-        position: 'absolute',
-        top: -10,
-        width: 20,
-        height: 3,
-        borderRadius: 2,
-        backgroundColor: '#00d4ff',
-    },
     fabContainer: {
         flex: 1,
         alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: -20,
+        paddingVertical: 2,
     },
     fab: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#00d4ff',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: colors.transparentPrimary,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#00d4ff',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
-        elevation: 8,
+        marginBottom: 4,
+        marginTop: -16,
+        borderWidth: 1,
+        borderColor: colors.primary,
     },
     fabActive: {
-        backgroundColor: '#00aadd',
+        backgroundColor: colors.primary,
     },
-    fabText: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#080d18',
-        marginTop: -2,
-    },
+    label: { fontSize: 10, color: colors.textMuted, fontWeight: '500' },
+    labelActive: { color: colors.primary, fontWeight: '700' },
 });
