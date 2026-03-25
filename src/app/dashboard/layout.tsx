@@ -5,9 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, MapPin, Bell, Building2, BarChart3,
-    Box, Shield, ChevronLeft, ChevronRight
+    Box, Shield, ChevronLeft, ChevronRight, Users, AlertTriangle
 } from 'lucide-react';
-import { UserButton } from '@clerk/nextjs';
+import { UserButton, useUser } from '@clerk/nextjs';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 const navItems = [
     { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -15,13 +19,53 @@ const navItems = [
     { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
     { label: 'Booths', href: '/dashboard/booths', icon: Building2 },
     { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+    { label: 'Manage Users', href: '/dashboard/users', icon: Users },
+    { label: 'Manage Projects', href: '/dashboard/projects', icon: Box },
+    { label: 'Reported Issues', href: '/dashboard/issues', icon: AlertTriangle },
     { label: 'Command Center', href: '/dashboard/command-center', icon: Box },
     { label: 'Transparency', href: '/dashboard/transparency', icon: Shield },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { user, isLoaded: isUserLoaded } = useUser();
     const [collapsed, setCollapsed] = useState(false);
+
+    const syncUser = useMutation(api.users.syncUser);
+    const isAdmin = useQuery(api.users.isAdmin, user?.id ? { clerkId: user.id } : "skip");
+
+    useEffect(() => {
+        if (isUserLoaded && user) {
+            syncUser({
+                clerkId: user.id,
+                name: user.fullName || user.username || "User",
+                email: user.emailAddresses[0].emailAddress,
+                avatar: user.imageUrl,
+            });
+        }
+    }, [user, isUserLoaded, syncUser]);
+
+    useEffect(() => {
+        if (isUserLoaded && !user) {
+            router.push('/sign-in');
+        } else if (isAdmin === false) {
+            router.push('/');
+        }
+    }, [user, isUserLoaded, isAdmin, router]);
+
+    if (!isUserLoaded || isAdmin === undefined) {
+        return <div style={{ 
+            height: '100vh', width: '100vw', display: 'flex', 
+            flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--bg-primary)', gap: '20px'
+        }}>
+             <div className="pulse-dot" style={{ width: 30, height: 30 }} />
+             <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Verifying Admin Access...</span>
+        </div>;
+    }
+
+    if (isAdmin === false) return null; // Component will redirect in useEffect
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -77,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             (item.href !== '/dashboard' && pathname.startsWith(item.href));
                         return (
                             <Link
-                                key={item.href}
+                                key={item.label}
                                 href={item.href}
                                 title={collapsed ? item.label : undefined}
                                 style={{

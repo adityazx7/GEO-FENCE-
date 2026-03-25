@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "cad15087-cc6d-48a0-95c4-e4f37e11e170"
+      }
+    },
+    "android": {
+      "package": "com.adityazx7.geo_fencing"
+    }
+  }
+}

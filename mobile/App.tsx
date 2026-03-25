@@ -1,6 +1,7 @@
 import React, { useState, Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { registerRootComponent } from 'expo';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
@@ -14,11 +15,18 @@ import NewsScreen from './src/screens/NewsScreen';
 import GovernmentWorkScreen from './src/screens/GovernmentWorkScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AddWorkScreen from './src/screens/AddWorkScreen';
+import ReportIssueScreen from './src/screens/ReportIssueScreen';
 import BottomNav from './src/components/BottomNav';
 
 // Convex connection
 const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL || 'https://befitting-chipmunk-858.convex.cloud';
-const convex = new ConvexReactClient(CONVEX_URL);
+let convex: ConvexReactClient;
+try {
+    convex = new ConvexReactClient(CONVEX_URL);
+} catch (e) {
+    console.error('[App] ConvexReactClient init failed:', e);
+    convex = null as any;
+}
 
 // Error boundary
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -46,7 +54,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 type AuthScreen = 'login' | 'register' | 'verify';
-type AppTab = 'home' | 'budget' | 'news' | 'addWork' | 'profile';
+type AppTab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
 
 function AppNavigator() {
     const { user, isLoading } = useAuth();
@@ -68,12 +76,12 @@ function AppNavigator() {
     // ====== AUTH SCREENS ======
     if (!user) {
         if (authScreen === 'register') {
-            return <RegisterScreen onNavigate={(s) => setAuthScreen(s as AuthScreen)} />;
+            return <RegisterScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
         }
         if (authScreen === 'verify') {
-            return <VerifyEmailScreen onNavigate={(s) => setAuthScreen(s as AuthScreen)} />;
+            return <VerifyEmailScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
         }
-        return <LoginScreen onNavigate={(s) => setAuthScreen(s as AuthScreen)} />;
+        return <LoginScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
     }
 
     // ====== MAIN APP ======
@@ -90,12 +98,13 @@ function AppNavigator() {
 
     const renderTab = () => {
         switch (activeTab) {
-            case 'home': return <HomeScreen onViewWork={(id) => setSelectedProjectId(id)} />;
-            case 'budget': return <BudgetScreen onViewProject={(id) => setSelectedProjectId(id)} />;
-            case 'news': return <NewsScreen onViewWork={(id) => setSelectedProjectId(id)} />;
+            case 'home': return <HomeScreen onViewWork={(id: string) => setSelectedProjectId(id)} />;
+            case 'budget': return <BudgetScreen onViewProject={(id: string) => setSelectedProjectId(id)} />;
+            case 'initiatives': return <NewsScreen onViewWork={(id: string) => setSelectedProjectId(id)} />;
             case 'addWork': return <AddWorkScreen onDone={() => setActiveTab('home')} />;
+            case 'reportIssue': return <ReportIssueScreen onDone={() => setActiveTab('home')} />;
             case 'profile': return <ProfileScreen />;
-            default: return <HomeScreen onViewWork={(id) => setSelectedProjectId(id)} />;
+            default: return <HomeScreen onViewWork={(id: string) => setSelectedProjectId(id)} />;
         }
     };
 
@@ -111,7 +120,16 @@ function AppNavigator() {
     );
 }
 
-export default function App() {
+function App() {
+    if (!convex) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0f1e' }}>
+                <Text style={{ color: '#ef4444', fontSize: 16 }}>Backend connection failed</Text>
+                <Text style={{ color: '#6b7280', fontSize: 13, marginTop: 8 }}>Check EXPO_PUBLIC_CONVEX_URL</Text>
+            </View>
+        );
+    }
+
     return (
         <ErrorBoundary>
             <ThemeProvider>
@@ -124,6 +142,11 @@ export default function App() {
         </ErrorBoundary>
     );
 }
+
+// Register the root component for all platforms including web
+registerRootComponent(App);
+
+export default App;
 
 const styles = StyleSheet.create({
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0f1e' },

@@ -16,6 +16,7 @@ import type * as booths from "../booths.js";
 import type * as files from "../files.js";
 import type * as geoFences from "../geoFences.js";
 import type * as geospatial from "../geospatial.js";
+import type * as issues from "../issues.js";
 import type * as neo4j from "../neo4j.js";
 import type * as notifications from "../notifications.js";
 import type * as ogd from "../ogd.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   geoFences: typeof geoFences;
   geospatial: typeof geospatial;
+  issues: typeof issues;
   neo4j: typeof neo4j;
   notifications: typeof notifications;
   ogd: typeof ogd;

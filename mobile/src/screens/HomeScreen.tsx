@@ -1,12 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, StatusBar, Platform, TouchableOpacity, Modal, Image, Alert } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useEffect, useState, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, StatusBar, Platform, TouchableOpacity, Modal, Image, Alert, Animated } from 'react-native';
+
+
+// Only import WebView on native platforms — it crashes Expo Web
+let WebView: any = null;
+if (Platform.OS !== 'web') {
+    try {
+        WebView = require('react-native-webview').WebView;
+    } catch (e) {
+        console.warn('react-native-webview not available');
+    }
+}
 import * as Location from 'expo-location';
 import { useQuery, useAction, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { MapPin, Bell, RefreshCw, Maximize2, X, Activity, Sparkles, Navigation, List, ShieldAlert, ThumbsUp, ThumbsDown, MessageSquare, User, Trash2, CheckCircle } from 'lucide-react-native';
+import { 
+    MapPin, Bell, RefreshCw, Maximize2, X, Activity, Sparkles, 
+    Navigation, List, ShieldAlert, ThumbsUp, ThumbsDown, 
+    MessageSquare, User, Trash2, CheckCircle, AlertTriangle,
+    Clock, XCircle, Info, ChevronRight, Search
+} from 'lucide-react-native';
 
 interface NotificationAlert {
     id: string;
@@ -35,12 +50,59 @@ function formatBudget(amount: number | undefined): string {
     return `₹${amount}`;
 }
 
+const PulseRadar = ({ colors }: { colors: any }) => {
+    const scale1 = useRef(new Animated.Value(1)).current;
+    const opacity1 = useRef(new Animated.Value(0.6)).current;
+    const scale2 = useRef(new Animated.Value(1)).current;
+    const opacity2 = useRef(new Animated.Value(0.4)).current;
+
+    useEffect(() => {
+        const pulse = (scale: Animated.Value, opacity: Animated.Value, delay: number) => {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.parallel([
+                        Animated.timing(scale, { toValue: 2.5, duration: 3000, useNativeDriver: true }),
+                        Animated.timing(opacity, { toValue: 0, duration: 3000, useNativeDriver: true })
+                    ])
+                ])
+            ).start();
+        };
+        pulse(scale1, opacity1, 0);
+        pulse(scale2, opacity2, 1500);
+    }, []);
+
+    return (
+        <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+            <Animated.View style={{
+                position: 'absolute', width: 20, height: 20, borderRadius: 10,
+                backgroundColor: colors.primary, transform: [{ scale: scale1 }], opacity: opacity1,
+            }} />
+            <Animated.View style={{
+                position: 'absolute', width: 20, height: 20, borderRadius: 10,
+                backgroundColor: colors.primary, transform: [{ scale: scale2 }], opacity: opacity2,
+            }} />
+            <View style={{
+                backgroundColor: colors.inputBg, borderRadius: 12, padding: 2,
+                shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.8, shadowRadius: 6, elevation: 5
+            }}>
+                <Image 
+                    source={require('../../assets/radar.png')} 
+                    style={{ width: 18, height: 18, tintColor: colors.primary }} 
+                />
+            </View>
+        </View>
+    );
+};
+
 export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) => void }) {
     const { user } = useAuth();
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
 
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
+    const [address, setAddress] = useState<string>('Detecting location...');
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [isMapExpanded, setIsMapExpanded] = useState(false);
@@ -70,6 +132,16 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     citizenLat: loc.coords.latitude,
                     citizenLng: loc.coords.longitude
                 });
+            }
+
+            // Get human-readable address
+            const rev = await Location.reverseGeocodeAsync({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude
+            });
+            if (rev.length > 0) {
+                const a = rev[0];
+                setAddress(`${a.name || a.street || ''}, ${a.district || a.city || ''}`);
             }
         } catch(e) {}
         setRefreshing(false);
@@ -103,11 +175,36 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                         } catch (e) {
                             console.log("Sync location error:", e);
                         }
+
+                        // Also update address for the header box
+                        try {
+                            const rev = await Location.reverseGeocodeAsync({
+                                latitude: loc.coords.latitude,
+                                longitude: loc.coords.longitude
+                            });
+                            if (rev.length > 0) {
+                                const a = rev[0];
+                                setAddress(`${a.name || a.street || ''}, ${a.district || a.city || ''}`);
+                            }
+                        } catch (e) {}
                     }
                 );
 
                 // Check proximity immediately on start
                 const currentLoc = await Location.getCurrentPositionAsync({});
+                
+                // Initial address fetch
+                try {
+                    const rev = await Location.reverseGeocodeAsync({
+                        latitude: currentLoc.coords.latitude,
+                        longitude: currentLoc.coords.longitude
+                    });
+                    if (rev.length > 0) {
+                        const a = rev[0];
+                        setAddress(`${a.name || a.street || ''}, ${a.district || a.city || ''}`);
+                    }
+                } catch (e) {}
+
                 if (user?._id) {
                     await calculateProximity({
                         citizenId: user._id,
@@ -116,7 +213,7 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     });
                 }
             } catch (e) {
-                console.error(e);
+                console.log("Tracking error:", e);
                 setErrorMsg('Could not get location');
             } finally {
                 setRefreshing(false);
@@ -124,10 +221,22 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
         };
         
         startTracking();
+
+        const timeoutId = setTimeout(() => {
+            setAddress(prev => {
+                if (prev === 'Detecting location...') {
+                    if (location) return `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
+                    return user?.city || user?.state || 'Current Location';
+                }
+                return prev;
+            });
+        }, 3000);
+
         return () => {
-            if (subscription) subscription.remove();
+            subscription?.remove();
+            clearTimeout(timeoutId);
         };
-    }, []);
+    }, [user?._id]);
 
     const handleClearAll = () => {
         if (!user?._id) return;
@@ -154,13 +263,20 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
 
     const handleMapMessage = (event: any) => {
         try {
-            const msg = JSON.parse(event.nativeEvent.data);
+            const msg = typeof event.nativeEvent?.data === 'string' ? JSON.parse(event.nativeEvent.data) : event.data ? JSON.parse(event.data) : null;
+            if (!msg) return;
+
             const { type, data } = msg;
-            
+
             if (type === 'VIEW_PROJECT' && onViewWork) {
                 // Handle both message formats for compatibility
                 const projectId = data?.id || msg.id;
-                if (projectId) onViewWork(projectId);
+                if (projectId) {
+                    setIsMapExpanded(false);
+                    onViewWork(projectId);
+                }
+            } else if (type === 'TOGGLE_WORKS') {
+                setShowAllWorks(prev => !prev);
             } else if (type === 'MARK_READ') {
                 const projectId = data?.id || msg.id;
                 if (projectId && user?._id) {
@@ -168,17 +284,31 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                 }
             }
         } catch (e) {
-            console.error("Map message error:", e);
+            // Ignore non-json messages (like react devtools)
         }
     };
 
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            const handleWebMessage = (event: MessageEvent) => {
+                if (event.data && typeof event.data === 'string') {
+                    // Re-use existing handler logic
+                    handleMapMessage({ data: event.data });
+                }
+            };
+            window.addEventListener('message', handleWebMessage);
+            return () => window.removeEventListener('message', handleWebMessage);
+        }
+    }, [onViewWork, user?._id]);
+
     const nearbyProjects = location
         ? projects
+            .filter((p: any) => p.location && typeof p.location.lat === 'number' && typeof p.location.lng === 'number')
             .map((p: any) => ({
                 ...p,
                 distance: haversineDistance(
                     location.coords.latitude, location.coords.longitude,
-                    p.location?.lat || 0, p.location?.lng || 0
+                    p.location.lat, p.location.lng
                 ),
             }))
             .filter((p: any) => p.distance <= 500)
@@ -191,214 +321,173 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
     const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     const statusColor = (s: string) => s === 'completed' ? colors.success : s === 'in_progress' ? colors.warning : colors.iconDefault;
 
-    const generateLeafletHtml = () => {
+    const generateLeafletHtml = (isExpanded: boolean = false) => {
         if (!location) return '';
         
         const userLat = location.coords.latitude;
         const userLng = location.coords.longitude;
         const mapUrl = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-        const modalBg = colors.card;
         
-        // Filter projects based on "New Only" setting
-        const displayedProjects = showAllWorks 
-            ? projects 
-            : projects.filter((p: any) => !readProjectIds.includes(p._id));
+        // Filter projects with valid location
+        const displayedProjects = (projects || [])
+            .filter((p: any) => p && p.location && typeof p.location.lat === 'number' && typeof p.location.lng === 'number')
+            .filter((p: any) => showAllWorks || !readProjectIds.includes(p._id));
 
         const markersJson = JSON.stringify(displayedProjects.map((p: any) => ({
             _id: p._id,
-            lat: p.location?.lat,
-            lng: p.location?.lng,
-            name: p.name,
-            type: p.type,
-            status: p.status,
+            lat: p.location.lat,
+            lng: p.location.lng,
+            name: p.name || 'Project',
+            type: p.type || 'Other',
+            status: p.status || 'planned',
             budget: p.budget || 0,
-            distance: haversineDistance(userLat, userLng, p.location?.lat || 0, p.location?.lng || 0)
+            areaImpact: p.areaImpact || '',
+            image: (p.afterImages && p.afterImages.length > 0) ? p.afterImages[0] : null,
+            distance: haversineDistance(userLat, userLng, p.location.lat, p.location.lng)
         })));
 
         return `
             <!DOCTYPE html>
             <html>
             <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
-                    body { margin: 0; padding: 0; background: ${colors.background}; }
-                    #map { height: 220px; width: 100%; border-radius: 12px; }
-                    .leaflet-popup-content-wrapper { background: ${modalBg}; color: ${colors.text}; border: 1px solid ${colors.transparentBorder}; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-                    .leaflet-popup-tip { background: ${modalBg}; }
-                    .user-marker { background: ${colors.danger}; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 15px ${colors.danger}; position: relative; }
-                    .user-marker .pulse { position: absolute; width: 30px; height: 30px; background: ${colors.danger}66; border-radius: 50%; top: -11px; left: -11px; animation: pulse 2s infinite; }
-                    @keyframes pulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
-                    .map-legend {
-                        position: absolute; bottom: 10px; left: 10px; z-index: 1000;
-                        background: rgba(10,10,18,0.88);
-                        color: white;
-                        border-radius: 14px; padding: 12px 14px; font-size: 10px;
-                        backdrop-filter: blur(10px);
-                        border: 1px solid rgba(255,255,255,0.12);
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                        min-width: 150px;
-                        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                    body { margin: 0; padding: 0; background: ${colors.background}; font-family: -apple-system, sans-serif; overflow: hidden; }
+                    #map { height: 100vh; width: 100%; border-radius: ${isExpanded ? '0' : '12px'}; }
+                    
+                    /* Glass UI Base */
+                    .glass-panel {
+                        background: ${isDark ? 'rgba(15, 23, 42, 0.75)' : 'rgba(255, 255, 255, 0.85)'};
+                        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                        border: 1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'};
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        color: ${colors.text};
                     }
-                    .legend-header {
+
+                    /* Mini Legend */
+                    .mini-legend {
+                        position: absolute; bottom: ${isExpanded ? '24px' : '15px'}; left: ${isExpanded ? '20px' : '10px'}; z-index: 1000;
+                        padding: ${isExpanded ? '12px 14px' : '8px 10px'}; 
+                        border-radius: ${isExpanded ? '14px' : '10px'}; 
+                        font-size: ${isExpanded ? '13px' : '10px'};
+                        display: flex; flex-direction: column; gap: ${isExpanded ? '8px' : '6px'}; 
+                        font-weight: 600;
+                        pointer-events: none;
+                    }
+                    .leg-row { display: flex; align-items: center; gap: 8px; }
+                    .leg-dot { width: ${isExpanded ? '14px' : '10px'}; height: ${isExpanded ? '14px' : '10px'}; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.8); }
+                    
+                    /* Toggle Button */
+                    .toggle-btn {
+                        position: absolute; top: ${isExpanded ? '24px' : '10px'}; left: ${isExpanded ? '20px' : '10px'}; z-index: 1000;
+                        padding: ${isExpanded ? '10px 14px' : '6px 10px'}; 
+                        border-radius: ${isExpanded ? '20px' : '16px'}; 
+                        font-size: ${isExpanded ? '13px' : '11px'};
+                        font-weight: 600; cursor: pointer;
                         display: flex; align-items: center; gap: 6px;
-                        font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
-                        color: rgba(255,255,255,0.9); margin-bottom: 10px;
-                        border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;
+                        transition: all 0.2s ease;
                     }
-                    .legend-zone {
-                        margin-bottom: 8px;
+                    .toggle-btn.active {
+                        background: ${colors.primary}; color: white; border-color: ${colors.primary};
+                        box-shadow: 0 0 14px ${colors.primary}40;
                     }
-                    .legend-zone-label {
-                        display: flex; align-items: center; gap: 5px;
-                        font-size: 9px; font-weight: 600; letter-spacing: 0.6px;
-                        text-transform: uppercase; opacity: 0.7;
-                        margin-bottom: 5px;
-                    }
-                    .legend-gradient-bar {
-                        position: relative; height: 8px; border-radius: 99px;
-                        margin-bottom: 3px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                    }
-                    .legend-tick-labels {
-                        display: flex; justify-content: space-between;
-                        font-size: 8px; opacity: 0.6; margin-top: 2px;
-                    }
-                    .legend-divider {
-                        border: none; border-top: 1px solid rgba(255,255,255,0.08);
-                        margin: 8px 0;
-                    }
+
+                    /* Custom Popup */
+                    .leaflet-popup-content-wrapper { background: ${colors.card}; color: ${colors.text}; border-radius: 12px; padding: 0; overflow: hidden; border: 1px solid ${colors.transparentBorder}; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+                    .leaflet-popup-tip { background: ${colors.card}; }
+                    .leaflet-popup-content { margin: ${isExpanded ? '16px' : '12px'}; }
+                    .leaflet-container a.leaflet-popup-close-button { color: ${colors.textMuted}; right: 8px; top: 8px; }
                 </style>
             </head>
             <body>
                 <div id="map"></div>
-                <div class="map-legend">
-                    <div class="legend-header">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                        Budget Scale
-                    </div>
-                    <div class="legend-zone">
-                        <div class="legend-zone-label" style="color:#F59E0B">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#F59E0B" stroke="none"><path d="M12 2C8 7 6 10.5 6 14a6 6 0 0012 0c0-3.5-2-7-6-12z"/></svg>
-                            Within 500m
-                        </div>
-                        <div class="legend-gradient-bar" style="background: linear-gradient(to right, #FDE68A, #F59E0B, #B45309);"></div>
-                        <div class="legend-tick-labels"><span>Low</span><span>Mid</span><span>High</span></div>
-                    </div>
-                    <hr class="legend-divider"/>
-                    <div class="legend-zone">
-                        <div class="legend-zone-label" style="color:#38BDF8">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
-                            Outside 500m
-                        </div>
-                        <div class="legend-gradient-bar" style="background: linear-gradient(to right, #BAE6FD, #38BDF8, #1E3A8A);"></div>
-                        <div class="legend-tick-labels"><span>Low</span><span>Mid</span><span>High</span></div>
-                    </div>
+                
+                <div class="glass-panel mini-legend">
+                    <div class="leg-row"><div class="leg-dot" style="background:#ef4444; box-shadow: 0 0 12px #ef4444, 0 0 20px #ef4444"></div> &gt; 1 Cr</div>
+                    <div class="leg-row"><div class="leg-dot" style="background:#f59e0b; box-shadow: 0 0 12px #f59e0b, 0 0 20px #f59e0b"></div> 10 L - 1 Cr</div>
+                    <div class="leg-row"><div class="leg-dot" style="background:#10b981; box-shadow: 0 0 12px #10b981, 0 0 20px #10b981"></div> &lt; 10 L</div>
+                </div>
+
+                <div class="toggle-btn ${showAllWorks ? 'active' : 'glass-panel'}" onclick="sendAction('TOGGLE_WORKS')">
+                    <svg width="${isExpanded ? '16' : '14'}" height="${isExpanded ? '16' : '14'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    ${showAllWorks ? 'All Works' : 'New Only'}
                 </div>
 
                 <script>
-                    function viewProject(id) {
-                        window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'VIEW_PROJECT', 
-                            data: { id: id }
-                        }));
+                    function formatBudgetText(amount) {
+                        if (!amount) return '₹0';
+                        if (amount >= 10000000) return '₹' + (amount / 10000000).toFixed(1) + ' Cr';
+                        if (amount >= 100000) return '₹' + (amount / 100000).toFixed(1) + ' L';
+                        if (amount >= 1000) return '₹' + (amount / 1000).toFixed(1) + ' K';
+                        return '₹' + amount;
                     }
 
-                    const map = L.map('map', { zoomControl: false }).setView([${userLat}, ${userLng}], 16);
-                    
-                    L.tileLayer('${mapUrl}', {
-                        attribution: '&copy; OpenStreetMap'
-                    }).addTo(map);
-
-                    const userIcon = L.divIcon({
-                        className: '',
-                        html: '<div class="user-marker"><div class="pulse"></div></div>',
-                        iconSize: [14, 14]
-                    });
-                    L.marker([${userLat}, ${userLng}], { icon: userIcon })
-                        .addTo(map)
-                        .bindPopup('<b style="color: ${colors.text}">You are here</b>');
-
-                    L.circle([${userLat}, ${userLng}], {
-                        color: 'rgba(56, 189, 248, 0.6)',
-                        fillColor: 'rgba(56, 189, 248, 0.12)',
-                        fillOpacity: 0.12,
-                        radius: 500,
-                        weight: 1.5,
-                        dashArray: '5 5'
-                    }).addTo(map);
-
-                    function getBudgetColor(budget, isNearby) {
-                        const cr = budget / 10000000;
-                        if (isNearby) {
-                            // WARM palette — amber/orange/brown
-                            if (cr < 1)  return { color: '#FDE68A', glow: '' };
-                            if (cr < 10) return { color: '#F59E0B', glow: 'box-shadow: 0 0 8px #F59E0B;' };
-                            return              { color: '#B45309', glow: 'box-shadow: 0 0 10px #B45309;' };
+                    window.sendAction = function(type, id) {
+                        const msg = JSON.stringify({ type: type, id: id });
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(msg);
                         } else {
-                            // COOL palette — sky/blue/navy
-                            if (cr < 1)  return { color: '#BAE6FD', glow: '' };
-                            if (cr < 10) return { color: '#38BDF8', glow: 'box-shadow: 0 0 8px #38BDF8;' };
-                            return              { color: '#1E3A8A', glow: 'box-shadow: 0 0 10px #3B82F6;' };
+                            window.parent.postMessage(msg, '*');
                         }
-                    }
+                    };
+
+                    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([${userLat}, ${userLng}], 15);
+                    L.tileLayer('${mapUrl}').addTo(map);
+
+                    const userSvg = \`
+                        <svg width="46" height="46" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 8px 12px rgba(0,0,0,0.5));">
+                          <!-- Outer Teardrop/Pin -->
+                          <path d="M50 85 C 50 85, 20 50, 20 35 A 30 30 0 1 1 80 35 C 80 50, 50 85, 50 85 Z" fill="#ff8a65" stroke="#4b3e33" stroke-width="5" stroke-linejoin="round"/>
+                          
+                          <!-- Inner red shadow curve -->
+                          <path d="M50 74 C 50 74, 27 48, 27 35 A 23 23 0 1 1 73 35 C 73 48, 50 74, 50 74 Z" fill="none" stroke="#ff5252" stroke-width="4"/>
+                          
+                          <!-- Center White Circle -->
+                          <circle cx="50" cy="35" r="18" fill="white" stroke="#4b3e33" stroke-width="5"/>
+                          
+                          <!-- Person Head -->
+                          <circle cx="50" cy="26" r="5" fill="#ffcc80" stroke="#4b3e33" stroke-width="4"/>
+                          
+                          <!-- Person Body -->
+                          <path d="M 38 43 A 12 12 0 0 1 62 43 Z" fill="#fde047" stroke="#4b3e33" stroke-width="4" stroke-linejoin="round"/>
+                        </svg>
+                    \`;
+
+                    const userIcon = L.divIcon({ className: '', html: userSvg, iconSize: [46, 46], iconAnchor: [23, 39] });
+                    L.marker([${userLat}, ${userLng}], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
 
                     const projects = ${markersJson};
                     projects.forEach(p => {
-                        if (!p.lat || !p.lng) return;
+                        let bgColor = '#10b981'; 
+                        if (p.budget >= 10000000) bgColor = '#ef4444'; 
+                        else if (p.budget >= 1000000) bgColor = '#f59e0b'; 
                         
-                        const isNearby = p.distance <= 500;
-                        const { color, glow } = getBudgetColor(p.budget, isNearby);
-                        const size = isNearby ? 10 : 8; // Smaller marker sizes
-                        const border = isNearby ? '2px solid white' : '1px solid rgba(255,255,255,0.4)';
-                        
+                        const iconHtml = '<div style="background: ' + bgColor + '; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 12px ' + bgColor + ', 0 0 24px ' + bgColor + ';"></div>';
                         const icon = L.divIcon({
-                            className: 'project-marker',
-                            html: '<div style="background: ' + color + '; width: ' + size + 'px; height: ' + size + 'px; border-radius: 50%; border: ' + border + '; ' + glow + '"></div>',
-                            iconSize: [size, size]
+                            className: '', html: iconHtml, iconSize: [14, 14]
                         });
                         
-                        let budgetText = '';
-                        if (p.budget >= 10000000) {
-                            budgetText = '₹' + (p.budget / 10000000).toFixed(1) + ' Cr';
-                        } else if (p.budget >= 100000) {
-                            budgetText = '₹' + (p.budget / 100000).toFixed(1) + ' Lakhs';
-                        } else {
-                            budgetText = '₹' + p.budget.toLocaleString();
-                        }
-                        
-                        const zone = isNearby ? 'Within 500m' : 'Outside 500m';
-                        
-                        const marker = L.marker([p.lat, p.lng], { icon: icon })
-                            .addTo(map)
-                            .bindPopup(
-                                '<div style="cursor:pointer; padding: 2px" onclick="viewProject(\\'' + p._id + '\\')">' +
-                                '<div style="border-bottom: 1px solid ' + color + '; padding-bottom: 4px; margin-bottom: 4px;">' +
-                                '<b style="color: ${colors.text}; font-size:15px; display:block;">' + p.name + '</b>' +
-                                '</div>' +
-                                '<span style="color: ${colors.textMuted}; font-size: 12px; display:block; margin-bottom: 2px;">' + zone + ' · ' + Math.round(p.distance) + 'm</span>' +
-                                '<span style="color: ' + color + '; font-weight:bold; font-size: 13px;">' + budgetText + '</span>' +
-                                '<div style="margin-top: 8px; text-decoration: underline; color: ${colors.primary}; font-size: 11px; font-weight: bold;">Tap to View Details →</div>' +
-                                '</div>'
-                            );
-                        marker.projectId = p._id; // Store ID for read tracking
-                    });
+                        const popupHtml = \`
+                            <div style="width: 180px; font-family: -apple-system, sans-serif;">
+                                \${p.image ? \`<img src="\${p.image}" style="width: 100%; height: \${${isExpanded ? '120' : '80'}}px; object-fit: cover; border-radius: 6px; margin-bottom: 8px;" />\` : ''}
+                                <h4 style="margin: 0 0 4px 0; font-size: \${${isExpanded ? '15' : '13'}}px; font-weight: 700; color: ${colors.text}; line-height: 1.2;">
+                                    \${p.name}
+                                </h4>
+                                <div style="display: flex; justify-content: space-between; font-size: \${${isExpanded ? '11' : '10'}}px; color: ${colors.textMuted}; margin-bottom: 6px;">
+                                    <span style="font-weight: 600; color: ${colors.primary};">\${formatBudgetText(p.budget)}</span>
+                                    <span>\${Math.round(p.distance)}m away</span>
+                                </div>
+                                \${p.areaImpact ? \`<div style="font-size: \${${isExpanded ? '11' : '10'}}px; color: ${colors.textMuted}; margin-bottom: \${${isExpanded ? '14' : '10'}}px; line-height: 1.3;">\${p.areaImpact}</div>\` : ''}
+                                
+                                <button onclick="sendAction('VIEW_PROJECT', '\${p._id}')" style="width: 100%; padding: \${${isExpanded ? '10' : '8'}}px; background: ${colors.primary}; color: white; border: none; border-radius: 6px; font-size: \${${isExpanded ? '12' : '11'}}px; font-weight: 600; cursor: pointer;">
+                                    Tap to see details
+                                </button>
+                            </div>
+                        \`;
 
-                    // Track 3-second popup read status
-                    let popupTimer = null;
-                    map.on('popupopen', function(e) {
-                        const marker = e.popup._source;
-                        if (marker && marker.projectId) {
-                            popupTimer = setTimeout(function() {
-                                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MARK_READ', data: { id: marker.projectId } }));
-                            }, 3000);
-                        }
-                    });
-                    map.on('popupclose', function(e) {
-                        if (popupTimer) {
-                            clearTimeout(popupTimer);
-                            popupTimer = null;
-                        }
+                        L.marker([p.lat, p.lng], { icon: icon }).addTo(map).bindPopup(popupHtml);
                     });
                 </script>
             </body>
@@ -459,6 +548,7 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
         </TouchableOpacity>
     );
 
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
@@ -470,10 +560,10 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                         <Text style={styles.avatarText}>{getInitials(user?.name || 'U')}</Text>
                     </View>
                     <View style={{ flex: 1, marginLeft: 14 }}>
-                        <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0]}!</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                            <MapPin color={colors.textMuted} size={12} />
-                            <Text style={styles.location}> {user?.city || user?.state || 'India'}</Text>
+                        <Text style={styles.greeting}>Hello, CivicSentinel!</Text>
+                        <View style={styles.locationBox}>
+                            <MapPin color={colors.primary} size={14} />
+                            <Text style={styles.locationText} numberOfLines={1}> {address}</Text>
                         </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -491,11 +581,11 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     </View>
                 </View>
 
-                {/* Map Card */}
+                {/* Live Area Radar Box */}
                 <View style={styles.card}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <View style={styles.labelRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Navigation color={colors.text} size={18} />
+                            <PulseRadar colors={colors} />
                             <Text style={styles.cardTitle}> Live Area Radar</Text>
                         </View>
                         <View style={styles.liveBadge}>
@@ -509,11 +599,11 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                             <View style={styles.gpsRow}>
                                 <View style={[styles.gpsBox, { marginRight: 5 }]}>
                                     <Text style={styles.gpsLabel}>LATITUDE</Text>
-                                    <Text style={styles.gpsValue}>{location.coords.latitude.toFixed(5)}</Text>
+                                    <Text style={styles.gpsValue}>{location?.coords?.latitude?.toFixed(5)}</Text>
                                 </View>
                                 <View style={[styles.gpsBox, { marginLeft: 5 }]}>
                                     <Text style={styles.gpsLabel}>LONGITUDE</Text>
-                                    <Text style={styles.gpsValue}>{location.coords.longitude.toFixed(5)}</Text>
+                                    <Text style={styles.gpsValue}>{location?.coords?.longitude?.toFixed(5)}</Text>
                                 </View>
                             </View>
                             
@@ -529,15 +619,6 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                                             onPress={() => setIsMapExpanded(true)}
                                         >
                                             <Maximize2 color="#fff" size={16} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.toggleBtn, showAllWorks && styles.toggleBtnActive]}
-                                            onPress={() => setShowAllWorks(!showAllWorks)}
-                                        >
-                                            <List color={showAllWorks ? "#fff" : colors.text} size={14} style={{marginRight: 4}} />
-                                            <Text style={[styles.toggleBtnText, showAllWorks && styles.toggleBtnTextActive]}>
-                                                {showAllWorks ? 'All Works' : 'New Only'}
-                                            </Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -557,15 +638,6 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                                         >
                                             <Maximize2 color="#fff" size={16} />
                                         </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.toggleBtn, showAllWorks && styles.toggleBtnActive]}
-                                            onPress={() => setShowAllWorks(!showAllWorks)}
-                                        >
-                                            <List color={showAllWorks ? "#fff" : colors.text} size={14} style={{marginRight: 4}} />
-                                            <Text style={[styles.toggleBtnText, showAllWorks && styles.toggleBtnTextActive]}>
-                                                {showAllWorks ? 'All Works' : 'New Only'}
-                                            </Text>
-                                        </TouchableOpacity>
                                     </View>
                                 </View>
                             )}
@@ -579,10 +651,10 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                 </View>
 
 
-                {/* Nearby (500m) */}
+                {/* Within 500m Radar Section */}
                 <View style={styles.sectionHeaderRow}>
-                    <Navigation color={colors.primary} size={20} />
-                    <Text style={styles.sectionTitle}>Within 500m Radar</Text>
+                    <PulseRadar colors={colors} />
+                    <Text style={styles.sectionTitle}> Within 500m Radar</Text>
                 </View>
                 <Text style={styles.sectionSub}>Hyper-local projects affecting your current spot</Text>
 
@@ -624,17 +696,16 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     {location ? (
                         Platform.OS === 'web' ? (
                             <iframe
-                                srcDoc={generateLeafletHtml().replace('height: 220px', 'height: 100vh')}
+                                srcDoc={generateLeafletHtml(true).replace('height: 220px', 'height: 100vh')}
                                 style={{ width: '100%', height: '100%', border: 'none' }}
                             />
                         ) : (
                             <WebView
                                 originWhitelist={['*']}
-                                source={{ html: generateLeafletHtml().replace('height: 220px', 'height: 100vh') }}
+                                source={{ html: generateLeafletHtml(true).replace('height: 220px', 'height: 100vh') }}
                                 style={{ flex: 1, backgroundColor: 'transparent' }}
-                                onMessage={(e) => {
+                                onMessage={(e: any) => {
                                     handleMapMessage(e);
-                                    setIsMapExpanded(false);
                                 }}
                             />
                         )
@@ -655,7 +726,7 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                                 {userNotifications.length > 0 && (
                                     <TouchableOpacity 
                                         onPress={handleClearAll} 
-                                        style={[styles.closeModalBtn, { marginRight: 8, backgroundColor: colors.transparentError || 'rgba(239, 68, 68, 0.1)' }]}
+                                        style={[styles.closeModalBtn, { marginRight: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
                                     >
                                         <Trash2 color="#ef4444" size={16} />
                                     </TouchableOpacity>
@@ -723,7 +794,20 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.transparentPrimary, alignItems: 'center', justifyContent: 'center' },
     avatarText: { color: colors.primary, fontWeight: 'bold', fontSize: 16 },
     greeting: { fontSize: 20, fontWeight: 'bold', color: colors.text },
-    location: { fontSize: 12, color: colors.textMuted },
+    locationBox: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        marginTop: 6, 
+        backgroundColor: colors.inputBg, 
+        paddingHorizontal: 10, 
+        paddingVertical: 4, 
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.transparentBorder,
+        alignSelf: 'flex-start',
+        maxWidth: '95%'
+    },
+    locationText: { fontSize: 12, color: colors.text, fontWeight: '600' },
     iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.inputBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.transparentBorder },
 
     card: { backgroundColor: colors.card, borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.transparentBorder },

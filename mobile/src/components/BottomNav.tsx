@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { Map, IndianRupee, Newspaper, User as UserIcon, Plus } from 'lucide-react-native';
+import { Map, IndianRupee, Newspaper, User as UserIcon, Plus, ShieldAlert } from 'lucide-react-native';
 
-type Tab = 'home' | 'budget' | 'news' | 'addWork' | 'profile';
+type Tab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
 
 export default function BottomNav({ activeTab, onTabChange, userType }: {
     activeTab: Tab;
@@ -19,21 +19,19 @@ export default function BottomNav({ activeTab, onTabChange, userType }: {
             <TabButton tab="home" label="Map" Icon={Map} active={activeTab} onPress={onTabChange} colors={colors} />
             <TabButton tab="budget" label="Budget" Icon={IndianRupee} active={activeTab} onPress={onTabChange} colors={colors} />
 
-            {/* Center: + button for org / News for citizen */}
-            {isOrg ? (
+            <TabButton tab="initiatives" label="Initiatives" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
+            
+            {/* Center: + button for org */}
+            {isOrg && (
                 <TouchableOpacity style={styles.fabContainer} onPress={() => onTabChange('addWork')} activeOpacity={0.8}>
                     <View style={[styles.fab, activeTab === 'addWork' && styles.fabActive]}>
-                        <Plus color={activeTab === 'addWork' ? colors.background : colors.primary} size={24} />
+                        <Plus color={activeTab === 'addWork' ? colors.background : colors.primary} size={18} />
                     </View>
-                    <Text style={[styles.label, activeTab === 'addWork' && styles.labelActive]}>Add Work</Text>
+                    <Text style={[styles.label, activeTab === 'addWork' && styles.labelActive, { fontSize: 9 }]}>Add</Text>
                 </TouchableOpacity>
-            ) : (
-                <TabButton tab="news" label="News" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
             )}
 
-            {isOrg && (
-                <TabButton tab="news" label="News" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
-            )}
+            <TabButton tab="reportIssue" label="Report" Icon={ShieldAlert} active={activeTab} onPress={onTabChange} colors={colors} />
 
             <TabButton tab="profile" label="Profile" Icon={UserIcon} active={activeTab} onPress={onTabChange} colors={colors} />
         </View>

@@ -6,10 +6,20 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 export const getUserByEmail = internalQuery({
     args: { email: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
+        const users = await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", args.email))
-            .unique();
+            .collect();
+        
+        if (users.length === 0) return null;
+        if (users.length === 1) return users[0];
+
+        // If duplicates exist, pick the one that is verified, or the most recently updated
+        return users.sort((a, b) => {
+            if (a.isVerified && !b.isVerified) return -1;
+            if (!a.isVerified && b.isVerified) return 1;
+            return (b.updatedAt || 0) - (a.updatedAt || 0);
+        })[0];
     },
 });
 
@@ -36,10 +46,11 @@ export const verifyEmail = mutation({
         await ctx.db.patch(valid._id, { used: true });
 
         // Set user as verified
-        const user = await ctx.db
+        const users = await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", args.email))
-            .unique();
+            .collect();
+        const user = users.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
 
         if (user) {
             await ctx.db.patch(user._id, { isVerified: true, updatedAt: Date.now() });
@@ -113,7 +124,7 @@ export const completeRegistration = internalMutation({
         const existing = await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", args.userData.email))
-            .unique();
+            .first();
         
         if (existing) {
             throw new Error("An account with this email already exists.");

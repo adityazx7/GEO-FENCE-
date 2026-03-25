@@ -75,7 +75,7 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
                                 <Text style={styles.projectName}>{p.name}</Text>
                                 <View style={styles.projectMeta}>
                                     <MapPin size={12} color={colors.textMuted} />
-                                    <Text style={styles.projectAddress} numberOfLines={1}>{p.location.address}</Text>
+                                    <Text style={styles.projectAddress} numberOfLines={1}>{p.location?.address || 'N/A'}</Text>
                                 </View>
                                 <View style={styles.projectFooter}>
                                     <View style={[styles.statusBadge, { backgroundColor: p.status === 'completed' ? '#22c55e20' : '#f59e0b20' }]}>

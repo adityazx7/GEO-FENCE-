@@ -27,6 +27,7 @@ export const create = mutation({
         likes: v.optional(v.number()),
         dislikes: v.optional(v.number()),
         boothId: v.optional(v.id("booths")),
+        progress: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("projects", {
@@ -133,6 +134,7 @@ export const createWork = mutation({
         dislikes: v.optional(v.number()),
         beforeImages: v.optional(v.array(v.string())),
         afterImages: v.optional(v.array(v.string())),
+        progress: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("projects", {
@@ -167,6 +169,7 @@ export const updateWork = mutation({
             lng: v.number(),
             address: v.string(),
         })),
+        progress: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const { id, ...rest } = args;

@@ -21,6 +21,7 @@ export default function GeoFencesPage() {
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingGeoFence, setEditingGeoFence] = useState<any>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -35,6 +36,7 @@ export default function GeoFencesPage() {
     // Mutations/Queries
     const liveGeoFences = useQuery(api.geoFences.list) || [];
     const createGeoFence = useMutation(api.geoFences.create);
+    const updateGeoFence = useMutation(api.geoFences.update);
     const removeGeoFence = useMutation(api.geoFences.remove);
 
     const filtered = liveGeoFences.filter((gf) => {
@@ -43,21 +45,49 @@ export default function GeoFencesPage() {
         return matchesSearch && matchesFilter;
     });
 
+    const handleEdit = (gf: any) => {
+        setEditingGeoFence(gf);
+        setFormData({
+            name: gf.name,
+            description: gf.description || '',
+            type: gf.type,
+            lat: gf.center.lat,
+            lng: gf.center.lng,
+            radius: gf.radius,
+        });
+        setIsModalOpen(true);
+    };
+
+    const resetForm = () => {
+        setFormData({ name: '', description: '', type: 'hospital', lat: 19.0760, lng: 72.8777, radius: 500 });
+        setEditingGeoFence(null);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await createGeoFence({
-                name: formData.name,
-                description: formData.description,
-                type: formData.type,
-                center: { lat: Number(formData.lat), lng: Number(formData.lng) },
-                radius: Number(formData.radius),
-            });
+            if (editingGeoFence) {
+                await updateGeoFence({
+                    id: editingGeoFence._id,
+                    name: formData.name,
+                    description: formData.description,
+                    radius: Number(formData.radius),
+                    // Note: Update mutation in convex/geoFences.ts currently only handles name, description, status, radius
+                });
+            } else {
+                await createGeoFence({
+                    name: formData.name,
+                    description: formData.description,
+                    type: formData.type,
+                    center: { lat: Number(formData.lat), lng: Number(formData.lng) },
+                    radius: Number(formData.radius),
+                });
+            }
             setIsModalOpen(false);
-            setFormData({ name: '', description: '', type: 'hospital', lat: 19.0760, lng: 72.8777, radius: 500 });
+            resetForm();
         } catch (error) {
             console.error(error);
-            alert("Failed to create geo-fence");
+            alert("Failed to save geo-fence");
         }
     };
 
@@ -116,7 +146,7 @@ export default function GeoFencesPage() {
                 </div>
 
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => { resetForm(); setIsModalOpen(true); }}
                     className="btn-primary"
                     style={{ fontSize: '0.85rem', padding: '10px 20px' }}
                 >
@@ -151,7 +181,9 @@ export default function GeoFencesPage() {
                             }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>New Hyper-Local Geo-Fence</h2>
+                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>
+                                    {editingGeoFence ? 'Edit Geo-Fence' : 'New Hyper-Local Geo-Fence'}
+                                </h2>
                                 <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                                     <X size={20} />
                                 </button>
@@ -227,7 +259,7 @@ export default function GeoFencesPage() {
                                 </div>
 
                                 <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '10px' }}>
-                                    Deploy Geo-Fence
+                                    {editingGeoFence ? 'Update Geo-Fence' : 'Deploy Geo-Fence'}
                                 </button>
                             </form>
                         </motion.div>
@@ -300,7 +332,10 @@ export default function GeoFencesPage() {
                                         <button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer' }}>
                                             <Eye size={16} />
                                         </button>
-                                        <button style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer' }}>
+                                        <button 
+                                            onClick={() => handleEdit(gf)}
+                                            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer' }}
+                                        >
                                             <Edit2 size={16} />
                                         </button>
                                         <button

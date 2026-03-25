@@ -123,6 +123,7 @@ export default defineSchema({
         beforeImages: v.optional(v.array(v.string())), // base64 or URLs
         afterImages: v.optional(v.array(v.string())),  // base64 or URLs
         boothId: v.optional(v.id("booths")),
+        progress: v.optional(v.number()), // 0-100 percentage
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -220,4 +221,36 @@ export default defineSchema({
     })
         .index("by_timestamp", ["timestamp"])
         .index("by_entityType", ["entityType"]),
+
+    // ====== REPORTED ISSUES ======
+    issues: defineTable({
+        userId: v.string(), // ID of the citizen reporting
+        location: v.object({
+            lat: v.number(),
+            lng: v.number(),
+            address: v.optional(v.string()),
+        }),
+        images: v.optional(v.array(v.string())), // Array of storage IDs or URLs
+        upvotes: v.optional(v.array(v.string())), // Array of user IDs or emails
+        downvotes: v.optional(v.array(v.string())), // Array of user IDs or emails
+        description: v.string(),
+        category: v.union(
+            v.literal("road_damage"),
+            v.literal("water_leak"),
+            v.literal("street_light"),
+            v.literal("garbage"),
+            v.literal("other")
+        ),
+        status: v.union(
+            v.literal("open"),
+            v.literal("in-progress"),
+            v.literal("resolved"),
+            v.literal("rejected")
+        ),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_status", ["status"])
+        .index("by_category", ["category"])
+        .index("by_userId", ["userId"]),
 });

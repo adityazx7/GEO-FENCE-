@@ -3,27 +3,22 @@
 import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp, MapPin, Bell, Users, Activity } from 'lucide-react';
 
-// Simulated chart data
-const weeklyData = [
-    { day: 'Mon', triggers: 320, notifications: 180 },
-    { day: 'Tue', triggers: 450, notifications: 290 },
-    { day: 'Wed', triggers: 280, notifications: 150 },
-    { day: 'Thu', triggers: 590, notifications: 420 },
-    { day: 'Fri', triggers: 680, notifications: 510 },
-    { day: 'Sat', triggers: 420, notifications: 300 },
-    { day: 'Sun', triggers: 350, notifications: 210 },
-];
-
-const maxTrigger = Math.max(...weeklyData.map(d => d.triggers));
-
-const zoneActivity = [
-    { name: 'Western Express Highway', triggers: 8912, percentage: 45 },
-    { name: 'Andheri Metro Extension', triggers: 5621, percentage: 29 },
-    { name: 'Mahim-Dadar Bridge', triggers: 3892, percentage: 20 },
-    { name: 'Tembhipada Health Center', triggers: 1247, percentage: 6 },
-];
+import { useQuery } from 'convex/react';
+import { api } from '../../../../convex/_generated/api';
 
 export default function AnalyticsPage() {
+    const stats = useQuery(api.analytics.getDashboardStats);
+    const weeklyActivity = useQuery(api.analytics.getWeeklyActivity);
+    const zoneActivity = useQuery(api.analytics.getZoneActivity);
+
+    if (!stats || !weeklyActivity || !zoneActivity) {
+        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <div className="pulse-dot" style={{ width: 20, height: 20 }} />
+            <span style={{ marginLeft: 10, color: 'var(--text-muted)' }}>Loading real-time analytics...</span>
+        </div>;
+    }
+
+    const maxTrigger = Math.max(...weeklyActivity.map(d => d.triggers), 100);
     return (
         <div>
             {/* Top stats */}
@@ -32,10 +27,10 @@ export default function AnalyticsPage() {
                 gap: '16px', marginBottom: '28px',
             }}>
                 {[
-                    { label: 'Total Triggers', value: '19,672', change: '+12%', icon: Activity, color: 'var(--accent-cyan)' },
-                    { label: 'Notifications', value: '5', change: '+3 today', icon: Bell, color: 'var(--accent-purple)' },
-                    { label: 'Active Zones', value: '4', change: '1 pending', icon: MapPin, color: 'var(--accent-blue)' },
-                    { label: 'Unique Citizens', value: '15.3K', change: '+8%', icon: Users, color: 'var(--accent-green)' },
+                    { label: 'Total Triggers', value: stats.totalTriggers.toLocaleString(), change: '+12%', icon: Activity, color: 'var(--accent-cyan)' },
+                    { label: 'Notifications', value: stats.notifications.total.toLocaleString(), change: `+${stats.notifications.today} today`, icon: Bell, color: 'var(--accent-purple)' },
+                    { label: 'Active Zones', value: stats.activeZones.count.toLocaleString(), change: `${stats.activeZones.pending} pending`, icon: MapPin, color: 'var(--accent-blue)' },
+                    { label: 'Unique Citizens', value: stats.totalCitizens.toLocaleString(), change: '+8%', icon: Users, color: 'var(--accent-green)' },
                 ].map((stat, i) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }} className="stat-card">
@@ -88,7 +83,7 @@ export default function AnalyticsPage() {
 
                         {/* Bars */}
                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flex: 1, marginLeft: '40px', height: '100%' }}>
-                            {weeklyData.map((d, i) => (
+                            {weeklyActivity.map((d, i) => (
                                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', height: '100%', justifyContent: 'flex-end' }}>
                                     <div style={{ display: 'flex', gap: '3px', alignItems: 'flex-end', height: '100%' }}>
                                         <motion.div

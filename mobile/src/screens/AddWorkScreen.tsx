@@ -9,6 +9,7 @@ import { useMutation } from 'convex/react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Hospital, Map, GraduationCap, Train, Building2, Landmark, List, Navigation, MapPin, Camera, X, Plus } from 'lucide-react-native';
+import ProgressSlider from '../components/ProgressSlider';
 
 const SECTORS = [
     { key: 'hospital', label: 'Healthcare', Icon: Hospital },
@@ -22,8 +23,10 @@ const SECTORS = [
 ];
 
 const STATUSES = [
-    { key: 'completed', label: 'Completed', color: '#22c55e' }, // We use absolute success colors here since it's an input selection
+    { key: 'planned', label: 'Planned', color: '#3b82f6' },
     { key: 'in_progress', label: 'In Progress', color: '#f59e0b' },
+    { key: 'completed', label: 'Completed', color: '#22c55e' },
+    { key: 'delayed', label: 'Delayed', color: '#ef4444' },
 ];
 
 const BUDGET_UNITS = [
@@ -50,6 +53,7 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
     const [budgetUnit, setBudgetUnit] = useState(10000000); // Default to Crore as it is most common for gov work
     const [lat, setLat] = useState('');
     const [lng, setLng] = useState('');
+    const [progress, setProgress] = useState(0);
     const [address, setAddress] = useState('');
     const [beforeImages, setBeforeImages] = useState<string[]>([]);
     const [afterImages, setAfterImages] = useState<string[]>([]);
@@ -129,6 +133,8 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
                 authorId: user?._id as any,
                 likes: 0,
                 dislikes: 0,
+                boothId: undefined,
+                progress: status === 'completed' ? 100 : status === 'in_progress' ? progress : status === 'planned' ? 0 : progress,
                 beforeImages: beforeStorageIds.length > 0 ? beforeStorageIds : undefined,
                 afterImages: afterStorageIds.length > 0 ? afterStorageIds : undefined,
             });
@@ -194,13 +200,25 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
                     {STATUSES.map((s) => (
                         <TouchableOpacity key={s.key}
                             style={[styles.chip, status === s.key && { backgroundColor: s.color, borderColor: s.color }]}
-                            onPress={() => setStatus(s.key)}>
+                            onPress={() => {
+                                setStatus(s.key as any);
+                                if (s.key === 'completed') setProgress(100);
+                                if (s.key === 'planned') setProgress(0);
+                            }}>
                             <Text style={[styles.chipText, status === s.key && { color: '#ffffff' }]}>
                                 {s.label}
                             </Text>
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                {/* Progress Selection (Only for In Progress) */}
+                {status === 'in_progress' && (
+                    <ProgressSlider 
+                        progress={progress} 
+                        onChange={setProgress} 
+                    />
+                )}
 
                 {/* Budget */}
                 <Text style={styles.label}>Budget Amount *</Text>
@@ -417,4 +435,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     naBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: colors.primary },
     naBtnActive: { backgroundColor: colors.primary },
     naBtnText: { fontSize: 10, fontWeight: 'bold', color: colors.primary },
+
+    progressBarWrapper: { flexDirection: 'row', justifyContent: 'space-between', height: 12, backgroundColor: colors.inputBg, borderRadius: 6, paddingHorizontal: 2, alignItems: 'center' },
+    progressStep: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.transparentBorder, borderWidth: 2, borderColor: colors.card },
 });

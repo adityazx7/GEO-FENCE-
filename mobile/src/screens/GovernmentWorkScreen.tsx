@@ -5,6 +5,7 @@ import { api } from '../../../convex/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { ArrowLeft, MapPin, Code, Receipt, Calendar, Camera, Languages, Sparkles, ThumbsUp, ThumbsDown, MessageSquare, Trash2, Edit3, User, Send, X } from 'lucide-react-native';
+import ProgressSlider from '../components/ProgressSlider';
 
 interface Project {
     _id: string;
@@ -27,6 +28,7 @@ interface Project {
     dislikes: number;
     beforeImages?: string[];
     afterImages?: string[];
+    progress?: number;
     createdAt: number;
 }
 
@@ -99,6 +101,7 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
     const [editBudget, setEditBudget] = useState('0');
     const [editStatus, setEditStatus] = useState<'planned' | 'in_progress' | 'completed' | 'delayed'>('planned');
     const [editDesc, setEditDesc] = useState('');
+    const [editProgress, setEditProgress] = useState(0);
     const [isUpdating, setIsUpdating] = useState(false);
 
     // Set edit state when project is loaded
@@ -108,6 +111,7 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
             setEditBudget(project.budget?.toString() || '0');
             setEditStatus(project.status);
             setEditDesc(project.description);
+            setEditProgress(project.progress || 0);
         }
     }, [project]);
 
@@ -122,6 +126,7 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
                 budget: parseFloat(editBudget),
                 status: editStatus,
                 description: editDesc,
+                progress: editStatus === 'completed' ? 100 : editStatus === 'planned' ? 0 : editProgress,
             });
             setIsEditModalVisible(false);
             Alert.alert("Success", "Initiative updated successfully.");
@@ -224,7 +229,7 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
     };
 
     const statusColor = project.status === 'completed' ? colors.success : project.status === 'in_progress' ? colors.warning : colors.iconDefault;
-    const progress = project.status === 'completed' ? 100 : project.status === 'in_progress' ? 65 : project.status === 'planned' ? 10 : 40;
+    const progress = project.progress !== undefined ? project.progress : (project.status === 'completed' ? 100 : project.status === 'in_progress' ? 0 : 0);
 
     return (
         <View style={styles.container}>
@@ -515,6 +520,15 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
                                 placeholderTextColor={colors.textMuted}
                             />
 
+                            {/* Progress Update Slider */}
+                            {editStatus === 'in_progress' && (
+                                <ProgressSlider 
+                                    progress={editProgress} 
+                                    onChange={setEditProgress}
+                                    label="Update Progress"
+                                />
+                            )}
+
                             <TouchableOpacity 
                                 style={styles.saveBtn} 
                                 onPress={handleUpdate}
@@ -634,4 +648,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
     previewCloseBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
     previewImage: { width: '100%', height: '80%' },
+
+    editProgressWrapper: { flexDirection: 'row', justifyContent: 'space-between', height: 12, backgroundColor: colors.inputBg, borderRadius: 6, paddingHorizontal: 2, alignItems: 'center' },
+    editProgressStep: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.transparentBorder, borderWidth: 1, borderColor: colors.card },
 });

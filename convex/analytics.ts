@@ -1,90 +1,119 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 
-export const logEvent = mutation({
-    args: {
-        eventType: v.union(
-            v.literal("geofence_enter"),
-            v.literal("geofence_exit"),
-            v.literal("notification_sent"),
-            v.literal("notification_read"),
-            v.literal("dashboard_view")
-        ),
-        geoFenceId: v.optional(v.id("geoFences")),
-        userId: v.optional(v.string()),
-        metadata: v.optional(v.string()),
-    },
-    handler: async (ctx, args) => {
-        return await ctx.db.insert("analyticsEvents", {
-            ...args,
-            timestamp: Date.now(),
-        });
-    },
-});
-
-export const getOverview = query({
+export const getDashboardStats = query({
     args: {},
     handler: async (ctx) => {
-        const events = await ctx.db.query("analyticsEvents").collect();
         const geoFences = await ctx.db.query("geoFences").collect();
+        const totalTriggers = geoFences.reduce((acc, gf) => acc + (gf.triggerCount || 0), 0);
+        
         const notifications = await ctx.db.query("notifications").collect();
-        const booths = await ctx.db.query("booths").collect();
-        const projects = await ctx.db.query("projects").collect();
+        const totalNotifications = notifications.length;
+        const notificationsToday = notifications.filter(n => {
+            const date = new Date(n.createdAt);
+            const today = new Date();
+            return date.toDateString() === today.toDateString();
+        }).length;
 
-        const geofenceEnters = events.filter((e) => e.eventType === "geofence_enter").length;
-        const notificationsSent = notifications.length;
-        const activeGeoFences = geoFences.filter((g) => g.status === "active").length;
+        const activeZones = geoFences.filter(gf => gf.status === "active").length;
+        const pendingZones = geoFences.filter(gf => gf.status === "pending").length;
+
+        const users = await ctx.db.query("users").collect();
+        const totalCitizens = users.filter(u => u.role === "citizen").length;
+
+        const booths = await ctx.db.query("booths").collect();
         const totalBooths = booths.length;
-        const totalProjects = projects.length;
-        const completedProjects = projects.filter((p) => p.status === "completed").length;
+        const totalVoters = booths.reduce((acc, b) => acc + (b.totalVoters || 0), 0);
 
         return {
-            geofenceEnters,
-            notificationsSent,
-            activeGeoFences,
-            totalGeoFences: geoFences.length,
+            totalTriggers,
+            notifications: {
+                total: totalNotifications,
+                today: notificationsToday
+            },
+            activeZones: {
+                count: activeZones,
+                pending: pendingZones
+            },
+            totalCitizens,
             totalBooths,
-            totalProjects,
-            completedProjects,
-            totalVoters: booths.reduce((sum, b) => sum + b.totalVoters, 0),
+            totalVoters
         };
     },
 });
 
-export const getRecentEvents = query({
+export const getWeeklyActivity = query({
     args: {},
     handler: async (ctx) => {
-        return await ctx.db
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        
+        const analyticsEvents = await ctx.db
             .query("analyticsEvents")
-            .order("desc")
-            .take(20);
+            .withIndex("by_timestamp", (q) => q.gt("timestamp", sevenDaysAgo))
+            .collect();
+
+        const notifications = await ctx.db
+            .query("notifications")
+            .collect(); // In a real app, index by createdAt
+
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const activity = [];
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateString = date.toDateString();
+            const dayName = days[date.getDay()];
+
+            const dayTriggers = analyticsEvents.filter(e => 
+                (e.eventType === "geofence_enter") && 
+                new Date(e.timestamp).toDateString() === dateString
+            ).length;
+
+            const dayNotifications = notifications.filter(n => 
+                new Date(n.createdAt).toDateString() === dateString
+            ).length;
+
+            activity.push({
+                day: dayName,
+                triggers: dayTriggers,
+                notifications: dayNotifications
+            });
+        }
+
+        return activity;
     },
 });
 
-// Audit log functions
-export const addAuditEntry = mutation({
+export const getZoneActivity = query({
+    args: {},
+    handler: async (ctx) => {
+        const geoFences = await ctx.db.query("geoFences").collect();
+        const sorted = geoFences.sort((a, b) => b.triggerCount - a.triggerCount);
+        
+        const top4 = sorted.slice(0, 4);
+        const totalTriggers = geoFences.reduce((acc, gf) => acc + gf.triggerCount, 0);
+
+        return top4.map(gf => ({
+            name: gf.name,
+            triggers: gf.triggerCount,
+            percentage: totalTriggers > 0 ? Math.round((gf.triggerCount / totalTriggers) * 100) : 0
+        }));
+    },
+});
+
+export const logEvent = mutation({
     args: {
-        action: v.string(),
-        entityType: v.string(),
-        entityId: v.string(),
-        details: v.string(),
-        txHash: v.optional(v.string()),
+        eventType: v.string(),
+        userId: v.optional(v.string()),
+        zoneId: v.optional(v.string()),
+        metadata: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        return await ctx.db.insert("auditLog", {
-            ...args,
-            verified: !!args.txHash,
+        await ctx.db.insert("analyticsEvents", {
+            eventType: args.eventType as any,
             timestamp: Date.now(),
+            metadata: args.metadata,
         });
-    },
-});
-
-export const getAuditLog = query({
-    args: {},
-    handler: async (ctx) => {
-        return await ctx.db
-            .query("auditLog")
-            .order("desc")
-            .take(50);
     },
 });
