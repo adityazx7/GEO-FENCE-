@@ -7,7 +7,7 @@ export const getUserByEmail = internalQuery({
     handler: async (ctx, args): Promise<Doc<"users"> | null> => {
         return await ctx.db.query("users")
             .withIndex("by_email", q => q.eq("email", args.email))
-            .unique();
+            .first(); // Use .first() to avoid crashing on duplicates
     },
 });
 
@@ -44,7 +44,19 @@ export const createUser = internalMutation({
 export const saveVerificationCode = internalMutation({
     args: { email: v.string(), code: v.string() },
     handler: async (ctx, args): Promise<void> => {
-        const expiresAt = Date.now() + 15 * 60 * 1000; // 15 mins
+        // 1. Check for resend cooldown (2 minutes)
+        const lastCode = await ctx.db.query("verificationCodes")
+            .withIndex("by_email", q => q.eq("email", args.email))
+            .order("desc")
+            .first();
+            
+        if (lastCode && (Date.now() - lastCode._creationTime) < 2 * 60 * 1000) {
+            const remaining = Math.ceil((2 * 60 * 1000 - (Date.now() - lastCode._creationTime)) / 1000);
+            throw new Error(`Please wait ${remaining} seconds before requesting a new code.`);
+        }
+
+        // 2. Insert new code with 2-minute expiry
+        const expiresAt = Date.now() + 2 * 60 * 1000; // 2 mins
         await ctx.db.insert("verificationCodes", {
             email: args.email,
             code: args.code,

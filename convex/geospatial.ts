@@ -9,8 +9,15 @@ export const calculateProximity = action({
         citizenId: v.string(),
         citizenLat: v.number(),
         citizenLng: v.number(),
+        speed: v.optional(v.number()), // speed in metres per second
     },
     handler: async (ctx, args) => {
+        // Speed filtering: If moving > 20km/h (approx 5.5 m/s), skip notifications
+        if (args.speed !== undefined && args.speed !== null && args.speed > 5.5) {
+            console.log(`[Geospatial] Speed detected: ${args.speed.toFixed(2)} m/s (> 5.5 m/s). Skipping proximity check.`);
+            return { success: true, triggered: false, speedFiltered: true };
+        }
+
         const apiKey = process.env.GEOAPIFY_API_KEY;
         if (!apiKey) {
             console.warn("GEOAPIFY_API_KEY not found. Falling back to straight-line math.");
@@ -87,10 +94,10 @@ export const calculateProximity = action({
                         await ctx.runMutation(api.projects.logGeofenceEntry, {
                             userId: args.citizenId,
                             geoFenceId: linked._id,
-                            geoFenceName: linked.name || project.name,
+                            geoFenceName: linked.name || project.name, // The unique geofence name as title
                             geoFenceType: project.type,
                             projectId: project._id,
-                            projectName: project.name,
+                            projectName: project.name, // The overall project name as subtitle
                         });
                     }
                 } catch (e) {
@@ -100,7 +107,13 @@ export const calculateProximity = action({
                 // 3. Unified Notification Logic (Batching & Throttling)
                 const rawLang = userRecord?.preferredLanguage || userRecord?.motherTongue || "English";
                 const prefLang = rawLang.trim();
-                let content = project.impact || "New infrastructure update nearby!";
+                
+                // Fetch geofence to get trigger stats for analytical notification
+                const geoFences = await ctx.runQuery(api.geoFences.list);
+                const linkedFence = geoFences?.find((g: any) => g.linkedProjectId === project._id);
+                const triggerCount = linkedFence?.triggerCount || 0;
+                
+                let content = `You've entered the ${linkedFence?.name || project.name} zone. This area has been visited ${triggerCount} times by citizens.`;
                 
                 if (prefLang.toLowerCase() !== "english") {
                     try {

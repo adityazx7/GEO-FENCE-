@@ -1,11 +1,11 @@
 'use client';
 
-import { MapContainer, TileLayer, Circle, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Circle, Popup, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
 
-export default function InteractiveMap({ geoFences }: { geoFences: any[] }) {
+export default function InteractiveMap({ geoFences, visualMode = 'circle' }: { geoFences: any[], visualMode?: 'circle' | 'dots' }) {
     const [mounted, setMounted] = useState(false);
     const geoapifyKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY;
 
@@ -29,27 +29,55 @@ export default function InteractiveMap({ geoFences }: { geoFences: any[] }) {
                     attribution='&copy; Geoapify & OSM'
                 />
 
-                {geoFences.filter(gf => gf.status === 'active' || gf.status === 'pending').map((gf) => (
-                    <Circle
-                        key={gf._id || gf.id}
-                        center={[gf.center.lat, gf.center.lng]}
-                        radius={gf.radius}
-                        pathOptions={{
-                            color: gf.status === 'active' ? '#00d4ff' : '#f97316',
-                            fillColor: gf.status === 'active' ? '#00d4ff' : '#f97316',
-                            fillOpacity: 0.2,
-                            weight: 2
-                        }}
-                    >
-                        <Popup>
-                            <div style={{ color: '#333' }}>
-                                <strong style={{ display: 'block', fontSize: '1rem', marginBottom: '4px' }}>{gf.name}</strong>
-                                <span style={{ fontSize: '0.8rem', color: '#666' }}>{gf.type} • {gf.radius}m radius</span>
-                                <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>Triggers: <strong>{gf.triggerCount || gf.triggers || 0}</strong></p>
-                            </div>
-                        </Popup>
-                    </Circle>
-                ))}
+                {geoFences.filter(gf => gf.status === 'active' || gf.status === 'pending').map((gf) => {
+                    const center: [number, number] = [
+                        gf.center?.lat ?? gf.lat ?? 19.0760, 
+                        gf.center?.lng ?? gf.lng ?? 72.8777
+                    ];
+                    
+                    if (visualMode === 'dots') {
+                        const icon = L.divIcon({
+                            className: '',
+                            html: `<div class="${gf.status === 'active' ? 'map-glow-dot-blue' : 'map-glow-dot-orange'}" style="width: 20px; height: 20px;"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10],
+                        });
+                        
+                        return (
+                            <Marker key={gf._id} position={center} icon={icon}>
+                                <Popup>
+                                    <div style={{ color: '#333' }}>
+                                        <strong style={{ display: 'block', fontSize: '1rem', marginBottom: '4px' }}>{gf.name}</strong>
+                                        <span style={{ fontSize: '0.8rem', color: '#666' }}>{gf.type} • {gf.radius}m radius</span>
+                                        <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>Triggers: <strong>{gf.triggerCount || gf.triggers || 0}</strong></p>
+                                    </div>
+                                </Popup>
+                            </Marker>
+                        );
+                    }
+
+                    return (
+                        <Circle
+                            key={gf._id || gf.id}
+                            center={center}
+                            radius={gf.radius}
+                            pathOptions={{
+                                color: gf.status === 'active' ? '#00d4ff' : '#f97316',
+                                fillColor: gf.status === 'active' ? '#00d4ff' : '#f97316',
+                                fillOpacity: 0.2,
+                                weight: 2
+                            }}
+                        >
+                            <Popup>
+                                <div style={{ color: '#333' }}>
+                                    <strong style={{ display: 'block', fontSize: '1rem', marginBottom: '4px' }}>{gf.name}</strong>
+                                    <span style={{ fontSize: '0.8rem', color: '#666' }}>{gf.type} • {gf.radius}m radius</span>
+                                    <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}>Triggers: <strong>{gf.triggerCount || gf.triggers || 0}</strong></p>
+                                </div>
+                            </Popup>
+                        </Circle>
+                    );
+                })}
             </MapContainer>
         </div>
     );

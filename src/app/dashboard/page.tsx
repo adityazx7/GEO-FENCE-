@@ -26,19 +26,13 @@ export default function DashboardOverview() {
     const projects = useQuery(api.projects.list);
     const stats = useQuery(api.analytics.getDashboardStats);
     
-    // Mutations & Actions
-    const seedDatabase = useMutation(api.seed.seedDatabase);
-    const clearDatabase = useMutation(api.seed.clearDatabase);
-    
     // @ts-ignore
     const syncToGraph = useAction(api.neo4j?.syncToGraph || (() => { }));
     // @ts-ignore
     const syncOgd = useAction(api.ogd?.syncProjects || (() => { }));
 
-    const [isSeeding, setIsSeeding] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSyncingOgd, setIsSyncingOgd] = useState(false);
-    const [isClearing, setIsClearing] = useState(false);
 
     // If data is loading or undefined (but manageable enough to show seed button)
     const isLoading = projects === undefined || stats === undefined;
@@ -69,35 +63,6 @@ export default function DashboardOverview() {
         }
     };
 
-    const handleSeed = async () => {
-        setIsSeeding(true);
-        try {
-            await seedDatabase();
-            // Reload to refresh all queries
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } catch (error) {
-            console.error(error);
-            alert("Seeding failed. Check if your Convex backend is running.");
-        } finally {
-            setIsSeeding(false);
-        }
-    };
-
-    const handleClear = async () => {
-        if (!confirm("Are you sure you want to clear all demo data? This will remove projects, booths, and geo-fences.")) return;
-        setIsClearing(true);
-        try {
-            await clearDatabase();
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-            alert("Failed to clear database.");
-        } finally {
-            setIsClearing(false);
-        }
-    };
 
     // If completely stuck in undefined, show limited UI with Seed button
     if (isLoading) {
@@ -112,17 +77,8 @@ export default function DashboardOverview() {
                     <h3 style={{ marginBottom: '12px' }}>First Time Setup?</h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px' }}>
                         If your dashboard keeps loading, it might be because the database is empty. 
-                        Try seeding the mock data to initialize your environment.
+                        Please ensure your Convex backend is running and populated with data.
                     </p>
-                    <button
-                        onClick={handleSeed}
-                        disabled={isSeeding}
-                        className="btn-primary"
-                        style={{ width: '100%', justifyContent: 'center' }}
-                    >
-                        <Database size={18} />
-                        {isSeeding ? "Seeding Database..." : "Seed Initial Data"}
-                    </button>
                     <p style={{ marginTop: '16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         Ensure <code>npx convex dev</code> is running in your terminal.
                     </p>
@@ -203,40 +159,6 @@ export default function DashboardOverview() {
                     <Database size={16} />
                     {isSyncing ? "Syncing..." : "Sync Space to Neo4j"}
                 </button>
-
-                {(projects?.length || 0) > 0 ? (
-                    <button
-                        onClick={handleClear}
-                        disabled={isClearing}
-                        style={{
-                            padding: '8px 16px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 600,
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            color: 'rgb(239, 68, 68)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '8px'
-                        }}
-                    >
-                        <AlertTriangle size={16} />
-                        {isClearing ? "Resetting..." : "Reset Demo Data"}
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleSeed}
-                        disabled={isSeeding}
-                        style={{
-                            padding: '8px 16px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 600,
-                            background: 'var(--accent-purple-glow)',
-                            color: 'var(--accent-purple)',
-                            border: '1px solid var(--glass-border)',
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '8px'
-                        }}
-                    >
-                        <Database size={16} />
-                        {isSeeding ? "Seeding..." : "Seed Mock Data"}
-                    </button>
-                )}
             </div>
 
             {/* Stats Grid */}

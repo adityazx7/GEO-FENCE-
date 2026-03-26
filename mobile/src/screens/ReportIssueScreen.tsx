@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     StyleSheet, Text, View, TextInput, TouchableOpacity,
-    ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Image, Animated
+    ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Image, Animated,
+    Modal
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,7 +13,8 @@ import { useTheme } from '../context/ThemeContext';
 import { 
     AlertTriangle, Camera, MapPin, X, Plus, 
     Droplets, Lightbulb, Trash2, HelpCircle, Navigation, Clock,
-    ThumbsUp, ThumbsDown, MessageCircle, Search, Radio, RefreshCw, Activity
+    ThumbsUp, ThumbsDown, MessageCircle, Search, Radio, RefreshCw, Activity,
+    ShieldAlert
 } from 'lucide-react-native';
 
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -103,8 +105,15 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
     const [isReporting, setIsReporting] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isDiscussModalOpen, setIsDiscussModalOpen] = useState(false);
+    const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+    const [commentText, setCommentText] = useState('');
 
     const allIssues = useQuery(api.issues.getIssues);
+    const issueComments = (useQuery(api.projects.getComments, activeIssueId ? { issueId: activeIssueId as any } : "skip") || []) as any[];
+
+    const reportIssueMutation = useMutation(api.issues.reportIssue);
+    const addComment = useMutation(api.projects.addComment);
 
     useEffect(() => {
         (async () => {
@@ -212,6 +221,28 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
         return storageId;
     };
 
+    const handleAddComment = async () => {
+        if (!commentText.trim() || !activeIssueId || !user) {
+            Alert.alert('Error', 'Please enter a comment');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await addComment({
+                issueId: activeIssueId as any,
+                userId: user._id || user.email || 'anon',
+                authorName: user.name || 'Anonymous citizen',
+                text: commentText.trim()
+            });
+            setCommentText('');
+        } catch (e) {
+            Alert.alert('Error', 'Failed to add comment');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmit = async () => {
         if (!description || !category || !lat || !lng) {
             setError('Please fill required fields (Description, Category, Location).');
@@ -255,6 +286,10 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
 
     const nearbyIssues = allIssues.filter((issue: any) => {
         if (!issue.location?.lat || !issue.location?.lng) return false;
+        
+        // Filter by status: Remove resolved and rejected from public view
+        if (issue.status === 'resolved' || issue.status === 'rejected') return false;
+
         const dist = haversineDistance(parseFloat(lat), parseFloat(lng), issue.location.lat, issue.location.lng);
         if (dist > 500) return false;
 
@@ -274,44 +309,47 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
     if (!isReporting) {
         return (
             <View style={styles.container}>
-                <View style={[styles.header, { justifyContent: 'space-between', marginBottom: 16 }]}>
+                <View style={[styles.header, { justifyContent: 'space-between', marginBottom: 20 }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <MapPin color={colors.primary} size={24} />
-                        <Text style={styles.pageTitle}>Nearby Issues</Text>
+                        <View style={styles.pageIconContainer}>
+                            <MapPin color={colors.primary} size={20} />
+                        </View>
+                        <View style={{ marginLeft: 12 }}>
+                            <Text style={styles.pageTitle}>Nearby Issues</Text>
+                            <Text style={styles.pageSubHeader}>500m area pulse</Text>
+                        </View>
                     </View>
                     <TouchableOpacity 
                         style={styles.topReportBtn}
                         onPress={() => setIsReporting(true)}
                     >
-                        <Plus color="#fff" size={16} />
-                        <Text style={styles.topReportBtnText}>Report Issue</Text>
+                        <Plus color="#fff" size={18} />
                     </TouchableOpacity>
                 </View>
 
                 {/* Big Prominent Location Card */}
-                <View style={styles.locationBox}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Navigation color={colors.primary} size={16} />
-                            <Text style={[styles.locationText, { fontSize: 11, color: colors.primary, fontWeight: '800', letterSpacing: 1, marginLeft: 6 }]}>YOUR LOCATION</Text>
+                <View style={styles.glassLocationCard}>
+                    <View style={styles.locationHeaderRow}>
+                        <View style={styles.pulseContainer}>
+                            <PulseRadar colors={colors} />
+                            <Text style={styles.locationLabel}> LIVE RADAR</Text>
                         </View>
-                        <TouchableOpacity onPress={() => { setLat(''); setLng(''); setAddress(''); }}>
+                        <TouchableOpacity style={styles.refreshBtn} onPress={() => { setLat(''); setLng(''); setAddress(''); }}>
                             <RefreshCw color={colors.primary} size={14} />
                         </TouchableOpacity>
                     </View>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 4 }} numberOfLines={2}>{address || 'Detecting...'}</Text>
-                    {lat && lng ? (
-                        <Text style={{ fontSize: 11, color: colors.textMuted }}>{lat}, {lng}</Text>
-                    ) : null}
+                    <Text style={styles.addressLine} numberOfLines={2}>{address || 'Locating...'}</Text>
+                    <View style={styles.coordsRow}>
+                        <Clock color={colors.textMuted} size={10} />
+                        <Text style={styles.coordsText}>{lat}, {lng}</Text>
+                    </View>
                 </View>
 
-                <Text style={styles.pageSub}>Civic problems reported within 500m of you</Text>
-                
                 <View style={styles.searchContainer}>
-                    <Search color={colors.textMuted} size={18} />
+                    <Search color={colors.primary} size={18} />
                     <TextInput 
                         style={styles.searchInput}
-                        placeholder="Search nearby issues..."
+                        placeholder="Search neighborhood reports..."
                         placeholderTextColor={colors.textMuted}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -322,9 +360,14 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                     {nearbyIssues.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <AlertTriangle color={colors.textMuted} size={40} style={{marginBottom: 16}} />
-                            <Text style={styles.emptyText}>No issues reported within 500m.</Text>
-                            <Text style={styles.emptySubText}>Be the first to keep your neighborhood clean and safe!</Text>
+                            <View style={styles.emptyIconCircle}>
+                                <ShieldAlert color={colors.primary} size={32} />
+                            </View>
+                            <Text style={styles.emptyText}>Area is currently clear</Text>
+                            <Text style={styles.emptySubText}>No civic issues detected within 500m. Everything looks good!</Text>
+                            <TouchableOpacity style={styles.emptyReportBtn} onPress={() => setIsReporting(true)}>
+                                <Text style={styles.emptyReportBtnText}>Report New Issue</Text>
+                            </TouchableOpacity>
                         </View>
                     ) : (
                         nearbyIssues.map((issue: any) => {
@@ -336,30 +379,41 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                             return (
                                 <TouchableOpacity 
                                     key={issue._id} 
-                                    style={styles.card}
-                                    activeOpacity={0.8}
+                                    style={[styles.issueCard, isExpanded && styles.issueCardExpanded]}
+                                    activeOpacity={0.9}
                                     onPress={() => setExpandedId(isExpanded ? null : issue._id)}
                                 >
                                     <View style={styles.cardHeader}>
-                                        <View style={[styles.cardIconBox, { 
-                                            backgroundColor: cat.color + '15', 
-                                            shadowColor: cat.color, 
-                                            shadowOffset: { width: 0, height: 0 }, 
-                                            shadowOpacity: 0.8, 
-                                            shadowRadius: 6, 
-                                            elevation: 4 
-                                        }]}>
+                                        <View style={[styles.cardIconBox, { backgroundColor: cat.color + '20' }]}>
                                             <Icon color={cat.color} size={18} />
                                         </View>
                                         <View style={{ flex: 1, marginLeft: 12 }}>
                                             <Text style={styles.cardTitle}>{cat.label}</Text>
-                                            <Text style={styles.cardTime}>
-                                                {new Date(issue.createdAt).toLocaleDateString()}
-                                            </Text>
+                                            <View style={styles.cardMetaRow}>
+                                                <Clock color={colors.textMuted} size={10} />
+                                                <Text style={styles.cardTime}> {new Date(issue.createdAt).toLocaleDateString()}</Text>
+                                            </View>
                                         </View>
-                                        <Text style={styles.cardDistance}>{Math.round(dist)}m away</Text>
+                                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                                            {issue.status === 'in-progress' && (
+                                                <View style={[styles.distBadge, { borderColor: '#eab308', backgroundColor: '#eab30810' }]}>
+                                                    <Text style={[styles.distBadgeText, { color: '#eab308' }]}>IN PROGRESS</Text>
+                                                </View>
+                                            )}
+                                            <View style={styles.distBadge}>
+                                                <Text style={styles.distBadgeText}>{Math.round(dist)}m</Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                    <Text style={styles.cardDesc} numberOfLines={isExpanded ? undefined : 3}>{issue.description}</Text>
+                                    
+                                    <Text style={styles.cardDesc} numberOfLines={isExpanded ? undefined : 2}>{issue.description}</Text>
+                                    
+                                    <View style={styles.cardLocationBox}>
+                                        <MapPin color={colors.primary} size={10} />
+                                        <Text style={styles.cardLocationText} numberOfLines={1}>
+                                            {issue.location.address || 'Precise location not provided'}
+                                        </Text>
+                                    </View>
                                     
                                     {isExpanded && issue.images && issue.images.length > 0 && (
                                         <View style={styles.cardPhotosGrid}>
@@ -373,32 +427,41 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
 
                                     {!isExpanded && issue.images && issue.images.length > 0 && (
                                         <View style={styles.cardTagRow}>
-                                            <Camera size={12} color={colors.textMuted} style={{marginRight: 4}} />
-                                            <Text style={styles.cardTagText}>{issue.images.length} Photo{issue.images.length > 1 ? 's' : ''}</Text>
+                                            <Camera size={10} color={colors.primary} style={{marginRight: 4}} />
+                                            <Text style={styles.cardTagText}>{issue.images.length} Evidence Attached</Text>
                                         </View>
                                     )}
 
                                     {isExpanded && (
                                         <View style={styles.cardActions}>
                                             <TouchableOpacity 
-                                                style={styles.cardActionBtn}
+                                                style={[styles.cardActionBtn, (issue.upvotes || []).includes(user?._id || user?.email || 'anon') && styles.cardActionBtnActive]}
                                                 onPress={() => toggleUpvote({ issueId: issue._id, userId: user?._id || user?.email || 'anon' })}
                                             >
-                                                <ThumbsUp color={(issue.upvotes || []).includes(user?._id || user?.email || 'anon') ? colors.primary : colors.textMuted} size={16} />
-                                                <Text style={[styles.cardActionText, (issue.upvotes || []).includes(user?._id || user?.email || 'anon') && { color: colors.primary }]}>
-                                                    {issue.upvotes?.length || 0} Upvotes
+                                                <ThumbsUp color={(issue.upvotes || []).includes(user?._id || user?.email || 'anon') ? '#fff' : colors.primary} size={14} />
+                                                <Text style={[styles.cardActionText, (issue.upvotes || []).includes(user?._id || user?.email || 'anon') && { color: '#fff' }]}>
+                                                    {issue.upvotes?.length || 0}
                                                 </Text>
                                             </TouchableOpacity>
+                                            
                                             <TouchableOpacity 
-                                                style={styles.cardActionBtn}
+                                                style={[styles.cardActionBtn, (issue.downvotes || []).includes(user?._id || user?.email || 'anon') && styles.cardActionBtnDanger]}
                                                 onPress={() => toggleDownvote({ issueId: issue._id, userId: user?._id || user?.email || 'anon' })}
                                             >
-                                                <ThumbsDown color={(issue.downvotes || []).includes(user?._id || user?.email || 'anon') ? colors.danger : colors.textMuted} size={16} />
+                                                <ThumbsDown color={(issue.downvotes || []).includes(user?._id || user?.email || 'anon') ? '#fff' : colors.textMuted} size={14} />
                                             </TouchableOpacity>
+                                            
                                             <View style={{ flex: 1 }} />
-                                            <TouchableOpacity style={styles.cardActionBtn}>
-                                                <MessageCircle color={colors.textMuted} size={16} />
-                                                <Text style={styles.cardActionText}>Discuss</Text>
+                                            
+                                            <TouchableOpacity 
+                                                style={styles.discussBtn}
+                                                onPress={() => {
+                                                    setActiveIssueId(issue._id);
+                                                    setIsDiscussModalOpen(true);
+                                                }}
+                                            >
+                                                <MessageCircle color="#fff" size={14} />
+                                                <Text style={styles.discussBtnText}>Discuss</Text>
                                             </TouchableOpacity>
                                         </View>
                                     )}
@@ -412,6 +475,7 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
     }
 
     return (
+        <>
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
                 <View style={styles.header}>
@@ -518,94 +582,176 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                 </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* Discussion Modal */}
+        <Modal visible={isDiscussModalOpen} transparent animationType="slide" onRequestClose={() => setIsDiscussModalOpen(false)}>
+            <View style={styles.modalOverlay}>
+                <View style={styles.commentModal}>
+                    <View style={styles.modalHeader}>
+                        <View>
+                            <Text style={styles.modalTitle}>Community Discussion</Text>
+                            <Text style={styles.modalSub}>{issueComments.length} thoughts shared</Text>
+                        </View>
+                        <TouchableOpacity style={styles.modalClose} onPress={() => setIsDiscussModalOpen(false)}>
+                            <X color={colors.textMuted} size={20} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.commentList} showsVerticalScrollIndicator={false}>
+                        {issueComments.length === 0 ? (
+                            <View style={styles.emptyComments}>
+                                <MessageCircle color={colors.transparentBorder} size={40} />
+                                <Text style={styles.emptyCommentsText}>No discussions yet. Be the first to speak!</Text>
+                            </View>
+                        ) : (
+                            issueComments.map((comment: any) => (
+                                <View key={comment._id} style={styles.commentItem}>
+                                    <View style={styles.commentHeader}>
+                                        <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                                        <Text style={styles.commentTime}>
+                                            {new Date(comment.createdAt).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.commentText}>{comment.text}</Text>
+                                </View>
+                            ))
+                        )}
+                    </ScrollView>
+
+                    <View style={styles.commentInputRow}>
+                        <TextInput
+                            style={styles.commentInput}
+                            placeholder="Add your thought..."
+                            placeholderTextColor={colors.textMuted}
+                            value={commentText}
+                            onChangeText={setCommentText}
+                            multiline
+                        />
+                        <TouchableOpacity 
+                            style={[styles.sendBtn, !commentText.trim() && { opacity: 0.5 }]} 
+                            onPress={handleAddComment}
+                            disabled={!commentText.trim() || loading}
+                        >
+                            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Plus color="#fff" size={20} />}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+        </>
     );
 }
 
 const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 50 },
     header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    pageTitle: { fontSize: 22, fontWeight: 'bold', color: colors.text },
-    locationBox: { 
-        backgroundColor: colors.card,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: colors.primary + '40',
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    locationText: { fontSize: 11, color: colors.text, fontWeight: '600', marginLeft: 4 },
-    bigLocationCard: {
+    pageIconContainer: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' },
+    pageTitle: { fontSize: 22, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
+    pageSubHeader: { fontSize: 10, color: colors.primary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginTop: -2 },
+    
+    glassLocationCard: { 
         backgroundColor: colors.card,
         borderRadius: 20,
         padding: 16,
-        marginBottom: 24,
+        marginBottom: 20,
         borderWidth: 1,
-        borderColor: colors.transparentBorder,
-        shadowColor: '#000',
+        borderColor: colors.primary + '30',
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 4
+        shadowRadius: 10,
+        elevation: 4,
     },
-    locationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    locationLabel: { fontSize: 10, color: colors.primary, fontWeight: '800', letterSpacing: 1 },
-    addressMain: { fontSize: 17, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
-    addressSub: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
-    pageSub: { fontSize: 13, color: colors.textMuted, marginBottom: 24, marginTop: 10 },
-    label: { fontSize: 11, color: colors.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-    input: { backgroundColor: colors.inputBg, borderRadius: 12, padding: 14, color: colors.text, fontSize: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder },
-    smallInput: { backgroundColor: colors.inputBg + '40', borderRadius: 10, padding: 10, color: colors.textMuted, fontSize: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder },
+    locationHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    pulseContainer: { flexDirection: 'row', alignItems: 'center' },
+    locationLabel: { fontSize: 10, color: colors.primary, fontWeight: '900', letterSpacing: 1.5 },
+    refreshBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.inputBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.transparentBorder },
+    addressLine: { fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 8, lineHeight: 22 },
+    coordsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    coordsText: { fontSize: 11, color: colors.textMuted, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+
+    pageSub: { fontSize: 13, color: colors.textMuted, marginBottom: 20, fontWeight: '500' },
+    label: { fontSize: 11, color: colors.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '700' },
+    input: { backgroundColor: colors.inputBg, borderRadius: 14, padding: 16, color: colors.text, fontSize: 15, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder },
+    smallInput: { backgroundColor: colors.inputBg + '40', borderRadius: 12, padding: 12, color: colors.textMuted, fontSize: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder },
     rowInputs: { flexDirection: 'row' },
-    divider: { height: 1, backgroundColor: colors.transparentBorder, marginVertical: 20 },
+    divider: { height: 1, backgroundColor: colors.transparentBorder, marginVertical: 24 },
     sectionHead: { fontSize: 16, fontWeight: 'bold', color: colors.text },
     
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16, gap: 8 },
-    chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.transparentBorder },
-    chipText: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20, gap: 10 },
+    chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.transparentBorder },
+    chipText: { fontSize: 13, color: colors.textMuted, fontWeight: '700' },
     
-    photoContainer: { marginBottom: 16 },
-    photoWrapper: { position: 'relative', marginRight: 12 },
-    photo: { width: 80, height: 80, borderRadius: 12, borderWidth: 1, borderColor: colors.transparentBorder },
-    removePhoto: { position: 'absolute', top: -6, right: -6, backgroundColor: colors.danger, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background },
-    addPhotoBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.transparentPrimary },
-    addPhotoText: { fontSize: 10, color: colors.primary, marginTop: 4, fontWeight: 'bold' },
+    photoContainer: { marginBottom: 20 },
+    photoWrapper: { position: 'relative', marginRight: 14 },
+    photo: { width: 90, height: 90, borderRadius: 16, borderWidth: 1, borderColor: colors.transparentBorder },
+    removePhoto: { position: 'absolute', top: -8, right: -8, backgroundColor: colors.danger, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background, zIndex: 10 },
+    addPhotoBtn: { width: 90, height: 90, borderRadius: 16, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '08' },
+    addPhotoText: { fontSize: 10, color: colors.primary, marginTop: 6, fontWeight: '800', textTransform: 'uppercase' },
     
-    btn: { backgroundColor: colors.primary, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },
-    btnText: { color: isDark ? '#0a0f1e' : '#fff', fontWeight: 'bold', fontSize: 16 },
-    cancelBtn: { padding: 16, alignItems: 'center' },
-    cancelBtnText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
-    error: { color: colors.danger, fontSize: 13, marginBottom: 16, backgroundColor: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 10 },
+    btn: { backgroundColor: colors.primary, borderRadius: 16, padding: 18, alignItems: 'center', marginTop: 10, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+    btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+    cancelBtn: { padding: 18, alignItems: 'center' },
+    cancelBtnText: { color: colors.textMuted, fontSize: 15, fontWeight: '700' },
+    error: { color: colors.danger, fontSize: 13, marginBottom: 20, backgroundColor: 'rgba(239,68,68,0.1)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
 
     /* Feed UI Styles */
-    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 20 },
-    emptyText: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
-    emptySubText: { color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 32 },
+    emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary + '10', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+    emptyText: { color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+    emptySubText: { color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 22, opacity: 0.8 },
+    emptyReportBtn: { marginTop: 24, backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+    emptyReportBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
     
-    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 16, height: 48, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder },
-    searchInput: { flex: 1, marginLeft: 10, color: colors.text, fontSize: 14, padding: 0 },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, paddingHorizontal: 16, height: 52, marginBottom: 20, borderWidth: 1, borderColor: colors.transparentBorder },
+    searchInput: { flex: 1, marginLeft: 12, color: colors.text, fontSize: 15, padding: 0, fontWeight: '500' },
 
-    topReportBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
-    topReportBtnText: { color: '#fff', fontSize: 13, fontWeight: 'bold', marginLeft: 6 },
+    topReportBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
     
-    card: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    cardIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    cardTitle: { color: colors.text, fontSize: 15, fontWeight: 'bold' },
-    cardTime: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-    cardDistance: { color: colors.primary, fontSize: 12, fontWeight: 'bold' },
-    cardDesc: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-    cardTagRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, backgroundColor: colors.inputBg, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    cardTagText: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
+    issueCard: { backgroundColor: colors.card, borderRadius: 20, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    issueCardExpanded: { borderColor: colors.primary + '40', shadowOpacity: 0.1 },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+    cardIconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    cardTitle: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
+    cardMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+    cardTime: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
+    distBadge: { backgroundColor: colors.inputBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: colors.transparentBorder },
+    distBadgeText: { color: colors.primary, fontSize: 11, fontWeight: 'bold' },
+    cardDesc: { color: (isDark ? 'rgba(255,255,255,0.7)' : '#444'), fontSize: 14, lineHeight: 22 },
+    cardTagRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, backgroundColor: colors.primary + '10', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+    cardTagText: { color: colors.primary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
     
-    cardPhotosGrid: { marginTop: 12, marginBottom: 4 },
-    cardDetailPhoto: { width: 120, height: 120, borderRadius: 10, marginRight: 8, borderWidth: 1, borderColor: colors.transparentBorder },
+    cardPhotosGrid: { marginTop: 16, marginBottom: 4 },
+    cardDetailPhoto: { width: 140, height: 140, borderRadius: 14, marginRight: 10, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.transparentBorder },
     
-    cardActions: { flexDirection: 'row', alignItems: 'center', marginTop: 16, borderTopWidth: 1, borderTopColor: colors.transparentBorder, paddingTop: 12, gap: 16 },
-    cardActionBtn: { flexDirection: 'row', alignItems: 'center', padding: 4 },
-    cardActionText: { color: colors.textMuted, fontSize: 12, marginLeft: 6, fontWeight: '600' },
+    cardActions: { flexDirection: 'row', alignItems: 'center', marginTop: 18, borderTopWidth: 1, borderTopColor: colors.transparentBorder, paddingTop: 16, gap: 12 },
+    cardActionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBg, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: colors.transparentBorder },
+    cardActionBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    cardActionBtnDanger: { backgroundColor: colors.danger, borderColor: colors.danger },
+    cardActionText: { color: colors.textMuted, fontSize: 13, marginLeft: 8, fontWeight: '700' },
+    discussBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.text, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, gap: 8 },
+    discussBtnText: { color: colors.background, fontSize: 13, fontWeight: 'bold' },
+    cardLocationBox: { flexDirection: 'row', alignItems: 'center', marginTop: 10, backgroundColor: colors.inputBg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+    cardLocationText: { fontSize: 11, color: colors.textMuted, marginLeft: 4, fontWeight: '600' },
+    
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+    commentModal: { backgroundColor: colors.card, borderTopLeftRadius: 30, borderTopRightRadius: 30, height: '70%', padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 20, color: colors.text, fontWeight: 'bold' },
+    modalSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+    modalClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.inputBg, alignItems: 'center', justifyContent: 'center' },
+    
+    commentList: { flex: 1 },
+    emptyComments: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
+    emptyCommentsText: { color: colors.textMuted, marginTop: 12, fontSize: 14, textAlign: 'center' },
+    
+    commentItem: { backgroundColor: colors.inputBg, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.transparentBorder },
+    commentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    commentAuthor: { fontWeight: 'bold', color: colors.text, fontSize: 14 },
+    commentTime: { fontSize: 11, color: colors.textMuted },
+    commentText: { fontSize: 14, color: colors.text, lineHeight: 20 },
+    
+    commentInputRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 12 },
+    commentInput: { flex: 1, backgroundColor: colors.inputBg, borderRadius: 15, paddingHorizontal: 16, paddingVertical: 12, color: colors.text, fontSize: 14, maxHeight: 100, borderWidth: 1, borderColor: colors.transparentBorder },
+    sendBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
 });

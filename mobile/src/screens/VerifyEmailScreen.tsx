@@ -14,12 +14,30 @@ export default function VerifyEmailScreen({ onNavigate }: { onNavigate: (screen:
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
+    const [resendTimer, setResendTimer] = useState(0);
     const [success, setSuccess] = useState(false);
     const { pendingEmail } = useAuth();
     const verifyEmail = useMutation(api.authHelpers.verifyEmail);
     const resendCode = useAction(api.auth.resendCode);
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
+
+    // Countdown logic for Resend Button
+    React.useEffect(() => {
+        let interval: any;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
 
     const handleVerify = async () => {
         if (code.length !== 6) { setError('Please enter the 6-digit code.'); return; }
@@ -37,12 +55,19 @@ export default function VerifyEmailScreen({ onNavigate }: { onNavigate: (screen:
     };
 
     const handleResend = async () => {
+        if (resendTimer > 0) return;
         setResending(true);
         setError('');
         try {
             await (resendCode as any)({ email: pendingEmail! });
+            setResendTimer(120); // 2 minute cooldown
         } catch (e: any) {
             setError(e?.message || e?.data || 'Failed to resend.');
+            // If the error contains a remaining time, try to parse it
+            if (e?.message?.includes('wait')) {
+                const match = e.message.match(/\d+/);
+                if (match) setResendTimer(parseInt(match[0]));
+            }
         } finally {
             setResending(false);
         }
@@ -84,14 +109,18 @@ export default function VerifyEmailScreen({ onNavigate }: { onNavigate: (screen:
                             {loading ? <ActivityIndicator color={isDark ? '#080d18' : colors.card} /> : <Text style={styles.btnText}>Verify</Text>}
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={handleResend} disabled={resending} style={{ marginTop: 24 }}>
-                            <Text style={styles.link}>
-                                {resending ? 'Sending...' : "Didn't get the code? "}<Text style={{ color: colors.primary, fontWeight: '700' }}>Resend</Text>
+                        <TouchableOpacity onPress={handleResend} disabled={resending || resendTimer > 0} style={{ marginTop: 24 }}>
+                            <Text style={[styles.link, (resendTimer > 0) && { color: colors.textMuted }]}>
+                                {resending ? 'Sending...' : 
+                                 resendTimer > 0 ? `Resend in ${formatTime(resendTimer)}` : 
+                                 "Didn't get the code? "}<Text style={{ color: resendTimer > 0 ? colors.textMuted : colors.primary, fontWeight: '700' }}>
+                                    {resendTimer > 0 ? '' : 'Resend'}
+                                 </Text>
                             </Text>
                         </TouchableOpacity>
 
                         <Text style={styles.hint}>
-                            💡 For demo: Check the Convex dashboard logs for the verification code.
+                            💡 Check your Gmail inbox (including Spam) for the verification code.
                         </Text>
                     </>
                 )}

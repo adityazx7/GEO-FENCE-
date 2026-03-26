@@ -48,6 +48,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }: any) =>
                     citizenId: userId,
                     citizenLat: latitude,
                     citizenLng: longitude,
+                    speed: latestLocation.coords.speed,
                 },
             }),
         });
@@ -99,7 +100,7 @@ export async function startBackgroundLocationTracking(userId: string, convexUrl:
             deferredUpdatesInterval: 60000, // Batch updates every 60 seconds minimum
             showsBackgroundLocationIndicator: true, // iOS: shows blue location bar
             foregroundService: {
-                notificationTitle: 'CivicSentinel Active',
+                notificationTitle: 'JanSang AI Active',
                 notificationBody: 'Monitoring nearby government projects',
                 notificationColor: '#00d4ff',
             },

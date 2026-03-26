@@ -100,7 +100,7 @@ export const updateGeofenceCheck = mutation({
         if (!user) {
             user = await ctx.db.query("users")
                 .withIndex("by_email", q => q.eq("email", args.userId))
-                .unique();
+                .first();
         }
         
         if (!user) {
@@ -136,7 +136,7 @@ export const updatePreferences = mutation({
         if (!user) {
             user = await ctx.db.query("users")
                 .withIndex("by_email", q => q.eq("email", args.userId))
-                .unique();
+                .first();
         }
         if (!user) {
             user = await ctx.db.query("users")
@@ -170,7 +170,7 @@ export const updateBatchTimer = mutation({
         if (!user) {
             user = await ctx.db.query("users")
                 .withIndex("by_email", q => q.eq("email", args.userId))
-                .unique();
+                .first();
         }
         
         if (!user) {
@@ -196,7 +196,7 @@ export const getUserByEmail = query({
         return await ctx.db
             .query("users")
             .withIndex("by_email", (q) => q.eq("email", args.email))
-            .unique();
+            .first();
     },
 });
 

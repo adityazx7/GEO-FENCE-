@@ -49,6 +49,14 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
     return R * c;
 }
 
+function formatBudget(amount: number | undefined): string {
+    if (amount === undefined || amount === null) return '₹0';
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)} K`;
+    return `₹${amount}`;
+}
+
 
 
 const PulseRadar = ({ colors }: { colors: any }) => {
@@ -120,6 +128,8 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
     const deleteAllNotifs = useMutation(api.notifications.deleteAllForUser);
     const updateBatchTimer = useMutation(api.users.updateBatchTimer);
     const savePushToken = useMutation(api.projects.savePushToken);
+    const markAllRead = useMutation(api.notifications.markAllRead);
+    const clearRecentEntries = useMutation(api.projects.clearRecentGeofences);
     
     // ===== Push Notification + Background Location Registration =====
     useEffect(() => {
@@ -171,7 +181,8 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                 await calculateProximity({
                     citizenId: user._id,
                     citizenLat: loc.coords.latitude,
-                    citizenLng: loc.coords.longitude
+                    citizenLng: loc.coords.longitude,
+                    speed: loc.coords.speed || 0
                 });
             }
 
@@ -234,7 +245,8 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                             await calculateProximity({
                                 citizenId: user?._id || '',
                                 citizenLat: loc.coords.latitude,
-                                citizenLng: loc.coords.longitude
+                                citizenLng: loc.coords.longitude,
+                                speed: loc.coords.speed || 0
                             });
                         } catch (e) {
                             console.log("Sync location error:", e);
@@ -291,7 +303,8 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     await calculateProximity({
                         citizenId: user._id,
                         citizenLat: currentLoc.coords.latitude,
-                        citizenLng: currentLoc.coords.longitude
+                        citizenLng: currentLoc.coords.longitude,
+                        speed: currentLoc.coords.speed || 0
                     });
                 }
             } catch (e) {
@@ -341,6 +354,15 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                 }
             ]
         );
+    };
+
+    const handleMarkAllRead = async () => {
+        if (!user?._id) return;
+        try {
+            await markAllRead({ userId: user._id });
+        } catch (e) {
+            Alert.alert("Error", "Could not mark notifications as read.");
+        }
     };
 
     const handleMapMessage = (event: any) => {
@@ -629,11 +651,18 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                         </View>
                         <Text style={[styles.projectType, { fontSize: 9, opacity: 0.8 }]}>{project.type.toUpperCase()}</Text>
                         
-                        {project.distance !== undefined && (
-                            <View style={[styles.distBadge, { backgroundColor: project.distance <= userRadius ? colors.success + '15' : 'transparent', borderColor: project.distance <= userRadius ? colors.success + '40' : colors.transparentBorder }]}>
-                                <Text style={[styles.distText, { color: project.distance <= userRadius ? colors.success : colors.textMuted, fontSize: 9 }]}>{Math.round(project.distance)}m</Text>
+                        <View style={styles.headerRightBadges}>
+                            <View style={styles.budgetBadge}>
+                                <Wallet color={colors.primary} size={10} style={{ marginRight: 4 }} />
+                                <Text style={styles.budgetText}>{formatBudget(project.budget)}</Text>
                             </View>
-                        )}
+
+                            {project.distance !== undefined && (
+                                <View style={[styles.distBadge, { backgroundColor: project.distance <= userRadius ? colors.success + '15' : 'transparent', borderColor: project.distance <= userRadius ? colors.success + '40' : colors.transparentBorder }]}>
+                                    <Text style={[styles.distText, { color: project.distance <= userRadius ? colors.success : colors.textMuted, fontSize: 9 }]}>{Math.round(project.distance)}m</Text>
+                                </View>
+                            )}
+                        </View>
                     </View>
                     
                     <Text style={[styles.projectName, { fontSize: 16, marginBottom: 4 }]} numberOfLines={1}>{project.name}</Text>
@@ -832,7 +861,38 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                         </View>
                     )}
                     <TouchableOpacity 
-                        style={{ marginLeft: 12, padding: 8, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.transparentBorder }}
+                        style={{ marginLeft: 6, padding: 8, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.transparentBorder }}
+                        onPress={() => {
+                            if (user?._id) {
+                                Alert.alert("Clear Recent", "Delete all recent geofence logs forever?", [
+                                    { text: "Cancel", style: "cancel" },
+                                    { 
+                                        text: "Delete", 
+                                        onPress: async () => {
+                                            try {
+                                                const result = await clearRecentEntries({ userId: user._id });
+                                                console.log("[HomeScreen] Clear result:", result);
+                                                // No need for alert on success if cards just disappear, 
+                                                // but let's add one if count is 0 to explain
+                                                if (result && (result as any).count === 0) {
+                                                    Alert.alert("Info", "No entries found to delete.");
+                                                }
+                                            } catch (e) {
+                                                console.error("[HomeScreen] Clear failed:", e);
+                                                Alert.alert("Error", "Failed to clear geofences.");
+                                            }
+                                        }, 
+                                        style: 'destructive' 
+                                    }
+                                ]);
+                            }
+                        }}
+                    >
+                        <Trash2 color={colors.danger} size={14} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={{ marginLeft: 6, padding: 8, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.transparentBorder }}
                         onPress={() => {
                             if (user?._id) {
                                 Alert.alert("Refresh Window", "Mark these as seen and start a fresh monitoring window?", [
@@ -941,12 +1001,20 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 {userNotifications.length > 0 && (
-                                    <TouchableOpacity 
-                                        onPress={handleClearAll} 
-                                        style={[styles.closeModalBtn, { marginRight: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
-                                    >
-                                        <Trash2 color="#ef4444" size={16} />
-                                    </TouchableOpacity>
+                                    <>
+                                        <TouchableOpacity 
+                                            onPress={handleMarkAllRead} 
+                                            style={[styles.closeModalBtn, { marginRight: 8, backgroundColor: colors.primary + '15' }]}
+                                        >
+                                            <CheckCircle color={colors.primary} size={16} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity 
+                                            onPress={handleClearAll} 
+                                            style={[styles.closeModalBtn, { marginRight: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}
+                                        >
+                                            <Trash2 color="#ef4444" size={16} />
+                                        </TouchableOpacity>
+                                    </>
                                 )}
                                 <TouchableOpacity onPress={() => setIsNotifModalOpen(false)} style={styles.closeModalBtn}>
                                     <X color={colors.textMuted} size={22} />
@@ -1115,6 +1183,18 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     projectStatus: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
     distBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
     distText: { fontSize: 10, fontWeight: 'bold' },
+    headerRightBadges: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    budgetBadge: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: colors.primary + '15', 
+        paddingHorizontal: 8, 
+        paddingVertical: 3, 
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.primary + '30'
+    },
+    budgetText: { color: colors.primary, fontSize: 10, fontWeight: '800' },
 
     notifBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: colors.danger, borderRadius: 10, width: 16, height: 16, justifyContent: 'center', alignItems: 'center' },
     notifBadgeText: { color: 'white', fontSize: 10, fontWeight: 'bold' },

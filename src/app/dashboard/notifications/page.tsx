@@ -17,56 +17,16 @@ const aiColors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-pur
 
 export default function NotificationsPage() {
     const [filter, setFilter] = useState('all');
-    const [isGenerating, setIsGenerating] = useState(false);
 
     // Fetch live notifications and projects from Convex
     const liveNotifications = useQuery(api.notifications.listAll) || [];
     const stats = useQuery(api.notifications.getStats) || { total: 0, sent: 0, delivered: 0, read: 0 };
     const projects = useQuery(api.projects.list) || [];
-    const generateAiAlert = useAction(api.ai.generateNotification);
 
     const filtered = filter === 'all' ? liveNotifications : liveNotifications.filter(n => n.type === filter);
 
-    const handleGenerateAI = async () => {
-        if (projects.length === 0) {
-            alert("No projects found. Please seed the database first.");
-            return;
-        }
-
-        setIsGenerating(true);
-        try {
-            // Pick a random project to simulate a citizen walking into its geo-fence
-            const randomProject = projects[Math.floor(Math.random() * projects.length)];
-            const language = Math.random() > 0.5 ? "English" : "Marathi"; // randomly generate in Eng or Marathi for demo
-
-            await generateAiAlert({ projectId: randomProject._id, language });
-        } catch (error) {
-            console.error("AI Generation Error", error);
-            alert("Failed to generate AI alert. Check if GEMINI_API_KEY is properly set in Convex dashboard.");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
     return (
         <div>
-            {/* Header / Actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-                <button
-                    onClick={handleGenerateAI}
-                    disabled={isGenerating || projects.length === 0}
-                    className="btn-primary"
-                    style={{
-                        fontSize: '0.85rem', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px',
-                        background: isGenerating ? 'var(--glass)' : 'var(--gradient-primary)',
-                        opacity: isGenerating ? 0.7 : 1,
-                        cursor: isGenerating ? 'not-allowed' : 'pointer'
-                    }}>
-                    <Sparkles size={16} />
-                    {isGenerating ? "Gemini is writing..." : "Test Gemini AI Alert"}
-                </button>
-            </div>
-
             {/* Stats */}
             <div style={{
                 display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -121,7 +81,7 @@ export default function NotificationsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {filtered.length === 0 ? (
                     <div className="glass-card" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        No notifications found. Click "Test Gemini AI Alert" to generate one.
+                        No notifications found.
                     </div>
                 ) : filtered.map((notif, i) => {
                     const color = aiColors[i % aiColors.length];

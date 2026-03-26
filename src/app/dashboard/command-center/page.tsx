@@ -10,13 +10,14 @@ const CommandCenterScene = dynamic(() => import('@/components/dashboard/CommandC
 
 export default function CommandCenterPage() {
     const geoFences = useQuery(api.geoFences.list) || [];
+    const stats = useQuery(api.analytics.getDashboardStats);
 
     // Sort by newest addition to highlight live syncing
     const activeZones = [...geoFences].sort((a, b) => b._creationTime - a._creationTime);
 
     // Calculate global stats for the overlay
-    const totalTriggers = geoFences.reduce((acc, f) => acc + (f.triggerCount || 0), 0);
-    const activeCount = geoFences.filter(f => f.status === 'active').length;
+    const totalTriggers = stats?.totalTriggers || 0;
+    const activeCount = stats?.activeZones.count || 0;
 
     return (
         <div>

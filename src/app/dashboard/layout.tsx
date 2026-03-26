@@ -102,16 +102,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     }}>
                         <MapPin size={20} color="white" />
                     </div>
-                    {!collapsed && (
                         <span style={{
                             fontFamily: 'var(--font-display)',
                             fontSize: '1.15rem',
                             fontWeight: 700,
                             color: 'var(--text-primary)',
                         }}>
-                            GeoFence<span style={{ color: 'var(--accent-cyan)' }}>AI</span>
+                            JanSang <span style={{ color: 'var(--accent-cyan)' }}>AI</span>
                         </span>
-                    )}
                 </Link>
 
                 {/* Navigation */}

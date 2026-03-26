@@ -9,6 +9,8 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import VerifyEmailScreen from './src/screens/VerifyEmailScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BudgetScreen from './src/screens/BudgetScreen';
 import NewsScreen from './src/screens/NewsScreen';
@@ -53,7 +55,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
     }
 }
 
-type AuthScreen = 'login' | 'register' | 'verify';
+type AuthScreen = 'login' | 'register' | 'verify' | 'forgotPassword' | 'resetPassword';
 type AppTab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
 
 function AppNavigator() {
@@ -68,7 +70,7 @@ function AppNavigator() {
         return (
             <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading CivicSentinel AI...</Text>
+                <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading JanSang AI...</Text>
             </View>
         );
     }
@@ -80,6 +82,12 @@ function AppNavigator() {
         }
         if (authScreen === 'verify') {
             return <VerifyEmailScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
+        }
+        if (authScreen === 'forgotPassword') {
+            return <ForgotPasswordScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
+        }
+        if (authScreen === 'resetPassword') {
+            return <ResetPasswordScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
         }
         return <LoginScreen onNavigate={(s: string) => setAuthScreen(s as AuthScreen)} />;
     }

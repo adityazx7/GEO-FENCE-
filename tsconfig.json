@@ -38,7 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    "convex"
+    "convex",
+    "mobile"
   ],
   "extends": "expo/tsconfig.base"
 }

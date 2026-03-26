@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "JanSang AI",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,8 +14,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "CivicSentinel needs your location in the background to notify you when you enter a government project zone.",
-        "NSLocationWhenInUseUsageDescription": "CivicSentinel uses your location to show nearby government projects.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "JanSang AI needs your location in the background to notify you when you enter a government project zone.",
+        "NSLocationWhenInUseUsageDescription": "JanSang AI uses your location to show nearby government projects.",
         "UIBackgroundModes": ["location", "fetch"]
       }
     },

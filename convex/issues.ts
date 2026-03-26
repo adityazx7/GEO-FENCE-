@@ -77,3 +77,21 @@ export const toggleDownvote = mutation({
         await ctx.db.patch(args.issueId, { upvotes, downvotes, updatedAt: Date.now() });
     },
 });
+
+export const updateIssueStatus = mutation({
+    args: {
+        issueId: v.id("issues"),
+        status: v.union(
+            v.literal("open"),
+            v.literal("in-progress"),
+            v.literal("resolved"),
+            v.literal("rejected")
+        ),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.issueId, {
+            status: args.status,
+            updatedAt: Date.now(),
+        });
+    },
+});

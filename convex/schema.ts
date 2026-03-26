@@ -193,13 +193,15 @@ export default defineSchema({
 
     // ====== COMMENTS ======
     comments: defineTable({
-        projectId: v.id("projects"),
+        projectId: v.optional(v.id("projects")),
+        issueId: v.optional(v.id("issues")),
         userId: v.string(),
         authorName: v.string(),
         text: v.string(),
         createdAt: v.number(),
     })
-        .index("by_project", ["projectId"]),
+        .index("by_project", ["projectId"])
+        .index("by_issue", ["issueId"]),
 
     // ====== ANALYTICS EVENTS ======
     analyticsEvents: defineTable({

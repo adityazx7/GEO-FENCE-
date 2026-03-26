@@ -122,10 +122,10 @@ export default function IssuesPage() {
 
                             {selectedIssue.images && selectedIssue.images.length > 0 && (
                                 <div style={{ marginBottom: '24px' }}>
-                                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Attached Images</h4>
-                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
+                                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Attached Evidence</h4>
+                                    <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px' }}>
                                         {selectedIssue.images.map((img: string, i: number) => (
-                                            <img key={i} src={img} alt="Issue evidence" style={{ height: '120px', width: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--glass-border)' }} />
+                                            <IssueImage key={i} storageId={img} />
                                         ))}
                                     </div>
                                 </div>
@@ -146,5 +146,28 @@ export default function IssuesPage() {
                 )}
             </div>
         </div>
+    );
+}
+function IssueImage({ storageId }: { storageId: string }) {
+    const url = useQuery(api.files.getUrl, { storageId });
+    if (!url) return (
+        <div style={{ 
+            height: '120px', width: '120px', borderRadius: '8px', 
+            background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center' 
+        }}>
+            <div className="pulse-dot" style={{ width: 10, height: 10 }} />
+        </div>
+    );
+    return (
+        <img 
+            src={url} 
+            alt="Issue evidence" 
+            style={{ 
+                height: '120px', width: '120px', objectFit: 'cover', 
+                borderRadius: '8px', border: '1px solid var(--glass-border)',
+                background: '#000'
+            }} 
+        />
     );
 }

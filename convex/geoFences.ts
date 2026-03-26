@@ -117,3 +117,12 @@ export const incrementByProjectId = mutation({
         }
     }
 });
+export const getRecentEntries = query({
+    args: { limit: v.optional(v.number()) },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("geofenceEntries")
+            .order("desc")
+            .take(args.limit || 10);
+    },
+});

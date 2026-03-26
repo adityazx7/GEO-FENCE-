@@ -101,8 +101,8 @@ function Particles() {
 }
 
 export default function CommandCenterScene() {
-    // We map Convex projects into 3D space for the visualization
-    const projects = useQuery(api.projects.list) || [];
+    // We map Convex geo-fences into 3D space for the visualization
+    const geoFences = useQuery(api.geoFences.list) || [];
     // @ts-ignore
     const calculateProximity = useAction(api.geospatial?.calculateProximity || (() => { }));
 
@@ -171,13 +171,31 @@ export default function CommandCenterScene() {
             <TerrainGrid onPlaneClick={handlePlaneClick} />
             <Particles />
 
-            {/* Render actual projects from Convex as 3D Zones */}
-            {projects.map((project, i) => {
-                if (!project.location) return null;
-                const pos = mapTo3D(project.location.lat, project.location.lng);
-                // Color code by status
-                const color = project.status === 'active' || project.status === 'in_progress' ? '#00d4ff' : '#22c55e';
-                return <GeoZone key={project._id} position={pos} radius={0.8} color={color} label={project.name} />
+            {/* Render actual geo-fences from Convex as 3D Zones */}
+            {geoFences.map((fence, i) => {
+                const pos = mapTo3D(fence.center?.lat || 19.0760, fence.center?.lng || 72.8777);
+                // Color code by status: active (cyan) vs pending (gray/muted)
+                const color = fence.status === 'active' ? '#00d4ff' : '#64748b';
+                return (
+                    <group key={fence._id}>
+                        <GeoZone position={pos} radius={0.8} color={color} label={fence.name} />
+                        <Html position={[pos[0], 1.2, pos[2]]} center>
+                            <div style={{
+                                background: 'rgba(8, 11, 20, 0.8)',
+                                color: 'white',
+                                padding: '4px 10px',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                border: `1px solid ${color}40`,
+                                pointerEvents: 'none',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 600,
+                            }}>
+                                {fence.name} ({fence.triggerCount || 0})
+                            </div>
+                        </Html>
+                    </group>
+                );
             })}
 
             {/* Render Simulation Pin */}

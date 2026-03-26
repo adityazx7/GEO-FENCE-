@@ -48,7 +48,7 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
                 <View style={styles.logoBox}>
-                    <Text style={styles.logo}>CivicSentinel<Text style={{ color: colors.primary }}>AI</Text></Text>
+                    <Text style={styles.logo}>JanSang <Text style={{ color: colors.primary }}>AI</Text></Text>
                     <Text style={styles.tagline}>Hyper-Local Governance Engine</Text>
                 </View>
 
@@ -69,7 +69,6 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
                         autoCapitalize="none"
                     />
 
-                    <Text style={styles.label}>Password</Text>
                     <TextInput
                         style={styles.input}
                         value={password}
@@ -78,6 +77,10 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
                         placeholderTextColor={colors.textMuted}
                         secureTextEntry
                     />
+
+                    <TouchableOpacity onPress={() => onNavigate('forgotPassword')} style={{ alignSelf: 'flex-end', marginBottom: 20 }}>
+                        <Text style={[styles.link, { color: colors.primary, fontWeight: '600' }]}>Forgot Password?</Text>
+                    </TouchableOpacity>
 
                     <TouchableOpacity style={styles.btn} onPress={handleLogin} disabled={loading}>
                         {loading ? <ActivityIndicator color={isDark ? '#080d18' : colors.card} /> : <Text style={styles.btnText}>Sign In</Text>}

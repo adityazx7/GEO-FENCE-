@@ -292,7 +292,8 @@ export const toggleInteraction = mutation({
 
 export const addComment = mutation({
     args: {
-        projectId: v.id("projects"),
+        projectId: v.optional(v.id("projects")),
+        issueId: v.optional(v.id("issues")),
         userId: v.string(),
         authorName: v.string(),
         text: v.string(),
@@ -306,12 +307,24 @@ export const addComment = mutation({
 });
 
 export const getComments = query({
-    args: { projectId: v.id("projects") },
+    args: { 
+        projectId: v.optional(v.id("projects")),
+        issueId: v.optional(v.id("issues"))
+    },
     handler: async (ctx, args) => {
-        return await ctx.db.query("comments")
-            .withIndex("by_project", q => q.eq("projectId", args.projectId))
-            .order("desc")
-            .collect();
+        if (args.projectId) {
+            return await ctx.db.query("comments")
+                .withIndex("by_project", q => q.eq("projectId", args.projectId))
+                .order("desc")
+                .collect();
+        }
+        if (args.issueId) {
+            return await ctx.db.query("comments")
+                .withIndex("by_issue", q => q.eq("issueId", args.issueId))
+                .order("desc")
+                .collect();
+        }
+        return [];
     },
 });
 
@@ -397,7 +410,12 @@ export const logGeofenceEntry = mutation({
                 .first();
             
             if (existing) {
-                console.log(`Geofence entry for project ${args.projectId} already exists for user ${args.userId}. Skipping.`);
+                console.log(`Updating existing geofence entry for project ${args.projectId}`);
+                await ctx.db.patch(existing._id, {
+                    geoFenceName: args.geoFenceName,
+                    geoFenceType: args.geoFenceType,
+                    projectName: args.projectName,
+                });
                 return existing._id;
             }
         } else {
@@ -430,15 +448,16 @@ export const getRecentGeofenceEntries = query({
         if (!args.userId) return [];
         
         let user: any = null;
-        try {
-            if (args.userId.includes(":")) user = await ctx.db.get(args.userId as any);
-        } catch(e) {}
+        // 1. Precise ID try
+        try { user = await ctx.db.get(args.userId as any); } catch(e) {}
         
+        // 2. Email try
         if (!user) {
             user = await ctx.db.query("users")
                 .withIndex("by_email", q => q.eq("email", args.userId))
-                .unique();
+                .first();
         }
+        // 3. Clerk ID try
         if (!user) {
             user = await ctx.db.query("users")
                 .withIndex("by_clerkId", q => q.eq("clerkId", args.userId))
@@ -446,14 +465,89 @@ export const getRecentGeofenceEntries = query({
         }
 
         const lastBatchAt = user?.lastBatchNotificationAt || 0;
-        
-        const entries = await ctx.db.query("geofenceEntries")
-            .withIndex("by_userId", q => q.eq("userId", args.userId))
-            .collect();
+        const identifiers = [args.userId];
+        if (user) {
+            identifiers.push(user._id);
+            identifiers.push(user.email);
+            identifiers.push(user.clerkId);
+        }
+        const uniqueIds = Array.from(new Set(identifiers.filter(Boolean)));
+
+        // Combine entries from all possible IDs
+        let allEntries: any[] = [];
+        for (const id of uniqueIds) {
+            const entries = await ctx.db.query("geofenceEntries")
+                .withIndex("by_userId", q => q.eq("userId", id!))
+                .collect();
+            allEntries = [...allEntries, ...entries];
+        }
             
-        return entries
-            .filter(e => e.enteredAt >= lastBatchAt)
+        // Filter and Deduplicate
+        const seen = new Set();
+        return allEntries
+            .filter(e => {
+                if (e.enteredAt < lastBatchAt) return false;
+                const key = `${e.geoFenceId}-${e.enteredAt}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
             .sort((a, b) => b.enteredAt - a.enteredAt);
+    },
+});
+
+export const clearRecentGeofences = mutation({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        let user: any = null;
+        // 1. Precise ID try
+        try { user = await ctx.db.get(args.userId as any); } catch(e) {}
+        
+        // 2. Email try
+        if (!user) {
+            user = await ctx.db.query("users")
+                .withIndex("by_email", q => q.eq("email", args.userId))
+                .first();
+        }
+        // 3. Clerk ID try
+        if (!user) {
+            user = await ctx.db.query("users")
+                .withIndex("by_clerkId", q => q.eq("clerkId", args.userId))
+                .unique();
+        }
+
+        const identifiers = [args.userId];
+        if (user) {
+            identifiers.push(user._id);
+            identifiers.push(user.email);
+            identifiers.push(user.clerkId);
+        }
+
+        const uniqueIds = Array.from(new Set(identifiers.filter(Boolean)));
+        console.log(`[ClearRecent] Attempting to clear entries for identifiers:`, uniqueIds);
+
+        let totalDeleted = 0;
+        for (const id of uniqueIds) {
+            const entries = await ctx.db.query("geofenceEntries")
+                .withIndex("by_userId", q => q.eq("userId", id!))
+                .collect();
+            
+            for (const entry of entries) {
+                await ctx.db.delete(entry._id);
+                totalDeleted++;
+            }
+        }
+
+        // FAIL-SAFE: Also update the user's batch timer so they disappear from view immediately
+        if (user) {
+            await ctx.db.patch(user._id, {
+                lastBatchNotificationAt: Date.now(),
+                updatedAt: Date.now(),
+            });
+        }
+
+        console.log(`[ClearRecent] Successfully deleted ${totalDeleted} entries and updated timer.`);
+        return { success: true, count: totalDeleted };
     },
 });
 

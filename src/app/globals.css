@@ -239,6 +239,35 @@ body {
     opacity: 0;
   }
 }
+@keyframes map-pulse-blue {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 212, 255, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
+}
+
+@keyframes map-pulse-orange {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+
+.map-glow-dot-blue {
+  background: var(--accent-cyan);
+  border-radius: 50%;
+  border: 2px solid white;
+  width: 100%;
+  height: 100%;
+  animation: map-pulse-blue 2s infinite;
+}
+
+.map-glow-dot-orange {
+  background: var(--accent-orange);
+  border-radius: 50%;
+  border: 2px solid white;
+  width: 100%;
+  height: 100%;
+  animation: map-pulse-orange 2s infinite;
+}
 
 /* ====== FLOATING ANIMATION ====== */
 @keyframes float {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Plus, Search, Filter, Edit2, Trash2, Eye, X } from 'lucide-react';
+import { MapPin, Plus, Search, Filter, Edit2, Trash2, Eye, X, Activity, Zap } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../../convex/_generated/api';
 
@@ -22,6 +22,7 @@ export default function GeoFencesPage() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGeoFence, setEditingGeoFence] = useState<any>(null);
+    const [visualMode, setVisualMode] = useState<'circle' | 'dots'>('circle');
 
     // Form state
     const [formData, setFormData] = useState({
@@ -38,6 +39,7 @@ export default function GeoFencesPage() {
     const createGeoFence = useMutation(api.geoFences.create);
     const updateGeoFence = useMutation(api.geoFences.update);
     const removeGeoFence = useMutation(api.geoFences.remove);
+    const recentActivity = useQuery(api.geoFences.getRecentEntries, { limit: 10 }) || [];
 
     const filtered = liveGeoFences.filter((gf) => {
         const matchesSearch = gf.name.toLowerCase().includes(search.toLowerCase());
@@ -99,6 +101,16 @@ export default function GeoFencesPage() {
 
     return (
         <div style={{ position: 'relative' }}>
+            <div style={{ marginBottom: '32px' }}>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                    Geo-Fence Management
+                </h1>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="pulse-dot" style={{ width: 8, height: 8 }} />
+                    Monitoring {liveGeoFences.filter(f => f.status === 'active').length} active hyper-local zones in real-time
+                </p>
+            </div>
+
             {/* Toolbar */}
             <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -142,6 +154,33 @@ export default function GeoFencesPage() {
                             <option value="pending">Pending</option>
                             <option value="inactive">Inactive</option>
                         </select>
+                    </div>
+
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '4px', borderRadius: 'var(--radius-md)',
+                        background: 'var(--surface)', border: '1px solid var(--glass-border)',
+                    }}>
+                        {(['circle', 'dots'] as const).map((mode) => (
+                            <button
+                                key={mode}
+                                onClick={() => setVisualMode(mode)}
+                                style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '8px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    textTransform: 'capitalize',
+                                    background: visualMode === mode ? 'var(--accent-cyan-glow)' : 'transparent',
+                                    color: visualMode === mode ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {mode}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -267,20 +306,69 @@ export default function GeoFencesPage() {
                 )}
             </AnimatePresence>
 
-            {/* Live Interactive Map */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card"
-                style={{
-                    height: '350px',
-                    marginBottom: '24px',
-                    position: 'relative',
-                    overflow: 'hidden',
-                }}
-            >
-                <InteractiveMap geoFences={filtered} />
-            </motion.div>
+            {/* Map & Activity Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 3fr)', gap: '24px', marginBottom: '24px' }}>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="glass-card"
+                    style={{
+                        height: '450px',
+                        position: 'relative',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10, display: 'flex', gap: '8px' }}>
+                        <div style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', padding: '4px 12px', borderRadius: '100px', border: '1px solid var(--glass-border)', fontSize: '0.75rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="pulse-dot" style={{ width: 6, height: 6 }} />
+                            Live Sync Active
+                        </div>
+                    </div>
+                    <InteractiveMap geoFences={filtered} visualMode={visualMode} />
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="glass-card"
+                    style={{ height: '450px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                >
+                    <div style={{ padding: '20px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Zap size={18} color="var(--accent-orange)" />
+                        <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Live Activity</h3>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+                        {recentActivity.length === 0 ? (
+                            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                                <Activity size={32} opacity={0.2} style={{ marginBottom: '12px' }} />
+                                <p style={{ fontSize: '0.8rem' }}>Waiting for triggers...</p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {recentActivity.map((entry: any) => (
+                                    <div 
+                                        key={entry._id} 
+                                        style={{ 
+                                            padding: '12px', background: 'rgba(255,255,255,0.02)', 
+                                            borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)',
+                                            position: 'relative', overflow: 'hidden'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>{entry.geoFenceName}</span>
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(entry.enteredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                            <Activity size={10} />
+                                            <span>User {entry.userId.slice(-4)} triggered zone</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            </div>
 
             {/* Table */}
             <motion.div
