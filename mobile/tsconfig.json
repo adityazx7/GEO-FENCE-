@@ -4,12 +4,11 @@
     "strict": true,
     "paths": {
       "@/*": ["./src/*"],
-      "convex/*": ["../convex/*"]
+      "@backend/*": ["../convex/*"]
     }
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx",
-    "../convex/_generated/api.d.ts"
+    "**/*.tsx"
   ]
 }

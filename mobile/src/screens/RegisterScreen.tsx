@@ -4,6 +4,7 @@ import {
     ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useAction } from 'convex/react';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { User, Building, ArrowLeft } from 'lucide-react-native';
@@ -27,7 +28,7 @@ export default function RegisterScreen({ onNavigate }: { onNavigate: (screen: st
     const [error, setError] = useState('');
     const [showStates, setShowStates] = useState(false);
     const { setPendingEmail } = useAuth();
-    const registerAction = useAction('auth:register' as any);
+    const registerAction = useAction(api.auth.register);
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
 

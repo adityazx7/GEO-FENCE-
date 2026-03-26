@@ -17,9 +17,9 @@ export default function BottomNav({ activeTab, onTabChange, userType }: {
     return (
         <View style={styles.container}>
             <TabButton tab="home" label="Map" Icon={Map} active={activeTab} onPress={onTabChange} colors={colors} />
-            <TabButton tab="budget" label="Budget" Icon={IndianRupee} active={activeTab} onPress={onTabChange} colors={colors} />
-
             <TabButton tab="initiatives" label="Initiatives" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
+
+            <TabButton tab="budget" label="Budget" Icon={IndianRupee} active={activeTab} onPress={onTabChange} colors={colors} />
             
             {/* Center: + button for org */}
             {isOrg && (

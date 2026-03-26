@@ -4,6 +4,7 @@ import {
     KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { useMutation, useAction } from 'convex/react';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Mail, CheckCircle2, ArrowLeft } from 'lucide-react-native';
@@ -15,8 +16,8 @@ export default function VerifyEmailScreen({ onNavigate }: { onNavigate: (screen:
     const [resending, setResending] = useState(false);
     const [success, setSuccess] = useState(false);
     const { pendingEmail } = useAuth();
-    const verifyEmail = useMutation('authHelpers:verifyEmail' as any);
-    const resendCode = useAction('auth:resendCode' as any);
+    const verifyEmail = useMutation(api.authHelpers.verifyEmail);
+    const resendCode = useAction(api.auth.resendCode);
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
 

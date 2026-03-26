@@ -4,6 +4,7 @@ import {
     KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator
 } from 'react-native';
 import { useAction } from 'convex/react';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -13,7 +14,7 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const { login, setPendingEmail } = useAuth();
-    const loginAction = useAction('auth:login' as any);
+    const loginAction = useAction(api.auth.login);
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
 
@@ -22,7 +23,13 @@ export default function LoginScreen({ onNavigate }: { onNavigate: (screen: strin
         setError('');
         setLoading(true);
         try {
-            const user = await (loginAction as any)({ email: email.trim().toLowerCase(), password });
+            // Add a 10 second timeout so the app doesn't hang infinitely if Convex is unreachable
+            const loginPromise = (loginAction as any)({ email: email.trim().toLowerCase(), password });
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Connection timed out. Ensure your backend server is running.')), 10000)
+            );
+            
+            const user = await Promise.race([loginPromise, timeoutPromise]);
             login(user as any);
         } catch (e: any) {
             const msg = e?.message || e?.data || String(e);

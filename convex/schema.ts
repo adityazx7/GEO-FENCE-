@@ -39,6 +39,15 @@ export default defineSchema({
         segment: v.optional(v.string()),
         preferredLanguage: v.optional(v.string()),
         motherTongue: v.optional(v.string()),
+        pushToken: v.optional(v.string()), // Expo push notification token
+        lastGeofenceCheck: v.optional(v.number()), // Timestamp for throttling
+        
+        // ===== Custom Notification Preferences =====
+        notificationFrequency: v.optional(v.union(v.literal("1d"), v.literal("12h"), v.literal("1h"), v.literal("always"))),
+        notificationRadius: v.optional(v.number()), // custom radius in meters (100, 300, 500)
+        notificationTypes: v.optional(v.array(v.string())), // e.g. ["planned", "in_progress", "completed"]
+        lastBatchNotificationAt: v.optional(v.number()), // timestamp of last summary notification push
+
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -209,6 +218,20 @@ export default defineSchema({
         .index("by_eventType", ["eventType"])
         .index("by_timestamp", ["timestamp"]),
 
+    // ====== GEOFENCE ENTRIES ======
+    geofenceEntries: defineTable({
+        userId: v.string(),           // user email or _id
+        geoFenceId: v.id("geoFences"),
+        geoFenceName: v.string(),
+        geoFenceType: v.string(),
+        projectId: v.optional(v.id("projects")),
+        projectName: v.optional(v.string()),
+        enteredAt: v.number(),        // timestamp ms
+    })
+        .index("by_userId", ["userId"])
+        .index("by_userId_time", ["userId", "enteredAt"])
+        .index("by_user_project", ["userId", "projectId"]),
+
     // ====== BLOCKCHAIN AUDIT LOG ======
     auditLog: defineTable({
         action: v.string(),
@@ -253,4 +276,13 @@ export default defineSchema({
         .index("by_status", ["status"])
         .index("by_category", ["category"])
         .index("by_userId", ["userId"]),
+
+    // ====== TRANSLATION CACHE ======
+    translationCache: defineTable({
+        originalText: v.string(),
+        targetLanguage: v.string(),
+        translatedText: v.string(),
+        createdAt: v.number(),
+    })
+        .index("by_original_text", ["originalText", "targetLanguage"]),
 });

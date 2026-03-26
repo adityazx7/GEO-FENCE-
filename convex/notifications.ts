@@ -45,17 +45,11 @@ export const sendUniqueProximityAlert = mutation({
         
         if (readInteraction) return null;
 
-        // 2. Check for recent unread alert for this same project
+        // 2. Check for ANY existing alert for this same project (never notify twice!)
         const existingNotif = await ctx.db
             .query("notifications")
             .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-            .filter((q) => 
-                q.and(
-                    q.eq(q.field("projectId"), args.projectId),
-                    q.eq(q.field("status"), "sent"),
-                    q.eq(q.field("type"), "proximity_alert")
-                )
-            )
+            .filter((q) => q.eq(q.field("projectId"), args.projectId))
             .first();
         
         if (existingNotif) return null;

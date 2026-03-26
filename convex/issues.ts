@@ -9,7 +9,6 @@ export const reportIssue = mutation({
             lng: v.number(),
             address: v.optional(v.string()),
         }),
-        images: v.optional(v.array(v.string())),
         description: v.string(),
         category: v.union(
             v.literal("road_damage"),
@@ -18,6 +17,7 @@ export const reportIssue = mutation({
             v.literal("garbage"),
             v.literal("other")
         ),
+        images: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("issues", {
@@ -34,43 +34,27 @@ export const reportIssue = mutation({
 export const getIssues = query({
     args: {},
     handler: async (ctx) => {
-        const issues = await ctx.db.query("issues").order("desc").collect();
-        return issues;
+        return await ctx.db.query("issues").order("desc").collect();
     },
 });
 
-export const updateIssueStatus = mutation({
-    args: {
-        issueId: v.id("issues"),
-        status: v.union(
-            v.literal("open"),
-            v.literal("in-progress"),
-            v.literal("resolved"),
-            v.literal("rejected")
-        ),
-    },
-    handler: async (ctx, args) => {
-        await ctx.db.patch(args.issueId, {
-            status: args.status,
-            updatedAt: Date.now(),
-        });
-    },
-});
 export const toggleUpvote = mutation({
     args: { issueId: v.id("issues"), userId: v.string() },
     handler: async (ctx, args) => {
         const issue = await ctx.db.get(args.issueId);
-        if (!issue) return;
-        const upvotes = issue.upvotes || [];
-        const downvotes = issue.downvotes || [];
+        if (!issue) throw new Error("Issue not found");
+        
+        let upvotes = issue.upvotes || [];
+        let downvotes = issue.downvotes || [];
+        
         if (upvotes.includes(args.userId)) {
-            await ctx.db.patch(args.issueId, { upvotes: upvotes.filter(id => id !== args.userId) });
+            upvotes = upvotes.filter(id => id !== args.userId);
         } else {
-            await ctx.db.patch(args.issueId, { 
-                upvotes: [...upvotes, args.userId],
-                downvotes: downvotes.filter(id => id !== args.userId)
-            });
+            upvotes.push(args.userId);
+            downvotes = downvotes.filter(id => id !== args.userId);
         }
+        
+        await ctx.db.patch(args.issueId, { upvotes, downvotes, updatedAt: Date.now() });
     },
 });
 
@@ -78,16 +62,18 @@ export const toggleDownvote = mutation({
     args: { issueId: v.id("issues"), userId: v.string() },
     handler: async (ctx, args) => {
         const issue = await ctx.db.get(args.issueId);
-        if (!issue) return;
-        const upvotes = issue.upvotes || [];
-        const downvotes = issue.downvotes || [];
+        if (!issue) throw new Error("Issue not found");
+        
+        let upvotes = issue.upvotes || [];
+        let downvotes = issue.downvotes || [];
+        
         if (downvotes.includes(args.userId)) {
-            await ctx.db.patch(args.issueId, { downvotes: downvotes.filter(id => id !== args.userId) });
+            downvotes = downvotes.filter(id => id !== args.userId);
         } else {
-            await ctx.db.patch(args.issueId, { 
-                downvotes: [...downvotes, args.userId],
-                upvotes: upvotes.filter(id => id !== args.userId)
-            });
+            downvotes.push(args.userId);
+            upvotes = upvotes.filter(id => id !== args.userId);
         }
+        
+        await ctx.db.patch(args.issueId, { upvotes, downvotes, updatedAt: Date.now() });
     },
 });

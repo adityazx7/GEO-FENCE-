@@ -6,6 +6,7 @@ import {
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useMutation } from 'convex/react';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Hospital, Map, GraduationCap, Train, Building2, Landmark, List, Navigation, MapPin, Camera, X, Plus } from 'lucide-react-native';
@@ -41,8 +42,8 @@ export default function AddWorkScreen({ onDone }: { onDone: () => void }) {
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
     
-    const createWork = useMutation('projects:createWork' as any);
-    const generateUploadUrl = useMutation('files:generateUploadUrl' as any);
+    const createWork = useMutation(api.projects.createWork);
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');

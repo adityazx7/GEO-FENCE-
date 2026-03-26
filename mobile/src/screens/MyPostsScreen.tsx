@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { ArrowLeft, Trash2, Edit3, ChevronRight, MapPin, Package } from 'lucide-react-native';

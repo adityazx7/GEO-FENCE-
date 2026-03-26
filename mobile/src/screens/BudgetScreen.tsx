@@ -1,23 +1,24 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useQuery } from 'convex/react';
+import { api } from '@backend/_generated/api';
 import { useTheme } from '../context/ThemeContext';
-import { Hospital, GraduationCap, Navigation, Map as MapIcon, Train, Building2, Landmark, List, ArrowLeft, ChevronRight, MapPin } from 'lucide-react-native';
+import { Activity, Rocket, Car, Construction, TrainFront, Building2, Landmark, Package, List, ArrowLeft, ChevronRight, MapPin } from 'lucide-react-native';
 
 const SECTORS = [
-    { key: 'hospital', label: 'Healthcare', Icon: Hospital, color: '#ef4444' },
-    { key: 'school', label: 'Education', Icon: GraduationCap, color: '#3b82f6' },
-    { key: 'road', label: 'Roads & Highways', Icon: Navigation, color: '#f59e0b' },
-    { key: 'bridge', label: 'Bridges & Flyovers', Icon: MapIcon, color: '#8b5cf6' },
-    { key: 'metro', label: 'Metro & Transit', Icon: Train, color: '#06b6d4' },
+    { key: 'hospital', label: 'Healthcare', Icon: Activity, color: '#f43f5e' },
+    { key: 'school', label: 'Education', Icon: Rocket, color: '#10b981' },
+    { key: 'road', label: 'Roads & Highways', Icon: Car, color: '#f59e0b' },
+    { key: 'bridge', label: 'Bridges & Flyovers', Icon: Construction, color: '#6366f1' },
+    { key: 'metro', label: 'Metro & Transit', Icon: TrainFront, color: '#8b5cf6' },
     { key: 'college', label: 'Higher Education', Icon: Building2, color: '#10b981' },
     { key: 'government_office', label: 'Govt Offices', Icon: Landmark, color: '#6366f1' },
-    { key: 'other', label: 'Other Projects', Icon: List, color: '#6b7280' },
+    { key: 'other', label: 'Other Projects', Icon: Package, color: '#6b7280' },
 ];
 
 export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: string) => void }) {
     const [selectedSectorKey, setSelectedSectorKey] = React.useState<string | null>(null);
-    const projects = useQuery('projects:list' as any) || [];
+    const projects = useQuery(api.projects.list) || [];
     const { colors } = useTheme();
     const styles = createStyles(colors);
 
@@ -123,7 +124,7 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
                             activeOpacity={0.7}
                         >
                             <View style={styles.sectorHeader}>
-                                <View style={[styles.iconContainer, { backgroundColor: sector.color + '15' }]}>
+                                <View style={[styles.iconContainer, { backgroundColor: sector.color + '15', shadowColor: sector.color }]}>
                                     <Icon color={sector.color} size={22} />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 14 }}>
@@ -181,7 +182,17 @@ const createStyles = (colors: any) => StyleSheet.create({
         elevation: 3
     },
     sectorHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    iconContainer: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    iconContainer: { 
+        width: 44, 
+        height: 44, 
+        borderRadius: 14, 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 8,
+        elevation: 4
+    },
     sectorName: { fontSize: 16, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
     sectorCount: { fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '500' },
     percentBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },

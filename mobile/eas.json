@@ -14,11 +14,23 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "https://limitless-poodle-869.convex.cloud"
+        "EXPO_PUBLIC_CONVEX_URL": "https://befitting-chipmunk-858.convex.cloud",
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://befitting-chipmunk-858.convex.site",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_b24tZGFzc2llLTE5LmNsZXJrLmFjY291bnRzLmRldiRhbFpGc2MyMTFMVEVMTW5zWkpSTE1manlZMjkxYm5SekxtUmxkaVE",
+        "EXPO_PUBLIC_GEOAPIFY_KEY": "137524567ebe4013942cae160e6542fe"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://befitting-chipmunk-858.convex.cloud",
+        "EXPO_PUBLIC_CONVEX_SITE_URL": "https://befitting-chipmunk-858.convex.site",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_b24tZGFzc2llLTE5LmNsZXJrLmFjY291bnRzLmRldiRhbFpGc2MyMTFMVEVMTW5zWkpSTE1manlZMjkxYm5SekxtUmxkaVE",
+        "EXPO_PUBLIC_GEOAPIFY_KEY": "137524567ebe4013942cae160e6542fe"
+      }
     }
   },
   "submit": {

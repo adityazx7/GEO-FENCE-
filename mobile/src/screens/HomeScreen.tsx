@@ -12,15 +12,22 @@ if (Platform.OS !== 'web') {
     }
 }
 import * as Location from 'expo-location';
+import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '../services/BackgroundLocation';
+import { registerForPushNotifications } from '../services/PushNotifications';
 import { useQuery, useAction, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { 
     MapPin, Bell, RefreshCw, Maximize2, X, Activity, Sparkles, 
-    Navigation, List, ShieldAlert, ThumbsUp, ThumbsDown, 
+    Navigation, List, ShieldAlert, ThumbsDown, 
     MessageSquare, User, Trash2, CheckCircle, AlertTriangle,
-    Clock, XCircle, Info, ChevronRight, Search
+    Clock, XCircle, Info, ChevronRight, Search, Radio, Wallet, 
+    Rocket,
+    TrainFront,
+    Car,
+    Package,
+    Construction
 } from 'lucide-react-native';
 
 interface NotificationAlert {
@@ -42,13 +49,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
     return R * c;
 }
 
-function formatBudget(amount: number | undefined): string {
-    if (amount === undefined || amount === null) return '₹0';
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)} K`;
-    return `₹${amount}`;
-}
+
 
 const PulseRadar = ({ colors }: { colors: any }) => {
     const scale1 = useRef(new Animated.Value(1)).current;
@@ -87,10 +88,7 @@ const PulseRadar = ({ colors }: { colors: any }) => {
                 shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: 0.8, shadowRadius: 6, elevation: 5
             }}>
-                <Image 
-                    source={require('../../assets/radar.png')} 
-                    style={{ width: 18, height: 18, tintColor: colors.primary }} 
-                />
+                <Radio color={colors.primary} size={18} />
             </View>
         </View>
     );
@@ -111,13 +109,56 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
 
     const projects = useQuery(api.projects.list) || [];
     const readProjectIds = useQuery(api.projects.getReadProjects, { userId: user?._id || '' }) || [];
+    const userNotifications = (useQuery(api.notifications.listForUser, { userId: user?._id || '' }) || []) as any[];
+    const recentEntries = (useQuery(api.projects.getRecentGeofenceEntries, { userId: user?._id || '' }) || []) as any[];
+    
+    const unreadCount = userNotifications.filter((n: any) => n.status !== 'read').length;
     const markReadMutation = useMutation(api.projects.markRead);
     const translateText = useAction(api.ai.translateText);
     const updateLocation = useMutation(api.users.updateLocation);
     const calculateProximity = useAction(api.geospatial.calculateProximity);
-    const userNotifications = useQuery(api.notifications.listForUser, { userId: user?._id || '' }) || [];
-    const unreadCount = userNotifications.filter(n => n.status !== 'read').length;
     const deleteAllNotifs = useMutation(api.notifications.deleteAllForUser);
+    const updateBatchTimer = useMutation(api.users.updateBatchTimer);
+    const savePushToken = useMutation(api.projects.savePushToken);
+    
+    // ===== Push Notification + Background Location Registration =====
+    useEffect(() => {
+        if (!user?._id) return;
+
+        const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL || 'https://befitting-chipmunk-858.convex.cloud';
+
+        // 1. Register for push notifications and save token to DB
+        (async () => {
+            try {
+                const token = await registerForPushNotifications();
+                if (token) {
+                    await savePushToken({ userId: user._id as any, token });
+                    console.log('[HomeScreen] Push token saved:', token);
+                }
+            } catch (e) {
+                console.warn('[HomeScreen] Push token registration failed:', e);
+            }
+        })();
+
+        // 2. Start background location tracking (100m trigger)
+        startBackgroundLocationTracking(user._id, CONVEX_URL);
+
+        return () => {
+            // Cleanup on unmount (e.g. logout)
+            stopBackgroundLocationTracking();
+        };
+    }, [user?._id]);
+    
+    // Custom Icon Mapping with Glow
+    const getProjectIcon = (type: string) => {
+        const t = (type || '').toLowerCase();
+        if (t.includes('bridge')) return Construction;
+        if (t.includes('education') || t.includes('school')) return Rocket;
+        if (t.includes('hospital') || t.includes('health')) return Activity;
+        if (t.includes('metro') || t.includes('rail')) return TrainFront;
+        if (t.includes('road') || t.includes('highway')) return Car;
+        return Package;
+    };
 
     const fetchLocation = async () => {
         setRefreshing(true);
@@ -135,13 +176,36 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
             }
 
             // Get human-readable address
-            const rev = await Location.reverseGeocodeAsync({
+            const reverseGeocode = await Location.reverseGeocodeAsync({
                 latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude
+                longitude: loc.coords.longitude,
             });
-            if (rev.length > 0) {
-                const a = rev[0];
-                setAddress(`${a.name || a.street || ''}, ${a.district || a.city || ''}`);
+
+            if (reverseGeocode.length > 0) {
+                const first = reverseGeocode[0];
+                // Smart de-duplication and prioritization
+                const name = first.name || '';
+                const street = first.street || '';
+                const subregion = first.subregion || '';
+                const district = first.district || first.city || '';
+                
+                // If name is just the city name, null it to avoid redundancy
+                const filteredName = (name && name !== district) ? name : '';
+                
+                const parts = [
+                    (first.name && first.name !== first.city && first.name !== first.district) ? first.name : '',
+                    first.streetNumber ? `${first.streetNumber} ${first.street}` : first.street,
+                    first.subregion,
+                    first.district || first.city,
+                    first.region,
+                    first.postalCode
+                ].filter((p, i, arr) => {
+                    const clean = p ? p.trim() : '';
+                    return clean && arr.indexOf(p) === i;
+                });
+                
+                const addr = parts.join(', ');
+                setAddress(addr || 'Unknown Location');
             }
         } catch(e) {}
         setRefreshing(false);
@@ -184,7 +248,16 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                             });
                             if (rev.length > 0) {
                                 const a = rev[0];
-                                setAddress(`${a.name || a.street || ''}, ${a.district || a.city || ''}`);
+                                const parts = [
+                                    a.name,
+                                    a.streetNumber ? `${a.streetNumber} ${a.street}` : a.street,
+                                    a.subregion,
+                                    a.district || a.city,
+                                    a.region,
+                                    a.postalCode
+                                ].filter(Boolean);
+                                const addr = parts.join(', ');
+                                setAddress(addr || 'Unknown Location');
                             }
                         } catch (e) {}
                     }
@@ -201,7 +274,16 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     });
                     if (rev.length > 0) {
                         const a = rev[0];
-                        setAddress(`${a.name || a.street || ''}, ${a.district || a.city || ''}`);
+                        const parts = [
+                            a.name,
+                            a.streetNumber ? `${a.streetNumber} ${a.street}` : a.street,
+                            a.subregion,
+                            a.district || a.city,
+                            a.region,
+                            a.postalCode
+                        ].filter(Boolean);
+                        const addr = parts.join(', ');
+                        setAddress(addr || 'Unknown Location');
                     }
                 } catch (e) {}
 
@@ -300,10 +382,12 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
             return () => window.removeEventListener('message', handleWebMessage);
         }
     }, [onViewWork, user?._id]);
-
+    
+    // Calculate nearby projects in JS using local coordinates for immediate UI feedback
+    const userRadius = user?.notificationRadius || 500;
     const nearbyProjects = location
-        ? projects
-            .filter((p: any) => p.location && typeof p.location.lat === 'number' && typeof p.location.lng === 'number')
+        ? (projects || [])
+            .filter((p: any) => p && p.location && typeof p.location.lat === 'number' && typeof p.location.lng === 'number')
             .map((p: any) => ({
                 ...p,
                 distance: haversineDistance(
@@ -311,14 +395,18 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     p.location.lat, p.location.lng
                 ),
             }))
-            .filter((p: any) => p.distance <= 500)
+            .filter((p: any) => p.distance <= userRadius)
             .filter((p: any) => showAllWorks || !readProjectIds.includes(p._id))
             .sort((a: any, b: any) => a.distance - b.distance)
         : [];
 
-    const allProjects = projects.slice(0, 10);
 
-    const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const allProjectsByDate = (projects || [])
+        .slice()
+        .sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0))
+        .slice(0, 15);
+
+    const getInitials = (name: string) => (name || '').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     const statusColor = (s: string) => s === 'completed' ? colors.success : s === 'in_progress' ? colors.warning : colors.iconDefault;
 
     const generateLeafletHtml = (isExpanded: boolean = false) => {
@@ -458,6 +546,16 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     const userIcon = L.divIcon({ className: '', html: userSvg, iconSize: [46, 46], iconAnchor: [23, 39] });
                     L.marker([${userLat}, ${userLng}], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
 
+                    // Add Radius Circle
+                    L.circle([${userLat}, ${userLng}], {
+                        radius: ${userRadius},
+                        color: '${colors.primary}',
+                        fillColor: '${colors.primary}',
+                        fillOpacity: 0.1,
+                        weight: 1,
+                        dashArray: '5, 5'
+                    }).addTo(map);
+
                     const projects = ${markersJson};
                     projects.forEach(p => {
                         let bgColor = '#10b981'; 
@@ -499,49 +597,60 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
     const renderProjectCard = (project: any, isHighlight: boolean = false) => (
         <TouchableOpacity 
             key={project._id} 
-            style={isHighlight ? styles.projectCardHighlight : styles.projectCard}
+            style={[
+                isHighlight ? styles.projectCardHighlight : styles.projectCard,
+                { overflow: 'hidden' }
+            ]}
             onPress={() => onViewWork && onViewWork(project._id)}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
         >
-            <View style={{ flexDirection: 'row' }}>
-                {project.afterImages && project.afterImages.length > 0 && (
-                    <Image source={{ uri: project.afterImages[0] }} style={styles.thumbnail} />
+            {/* Subtle Gradient Hint */}
+            <View style={{ 
+                position: 'absolute', top: 0, left: 0, width: 4, height: '100%', 
+                backgroundColor: statusColor(project.status) 
+            }} />
+            
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                {project.afterImages && project.afterImages.length > 0 ? (
+                    <Image source={{ uri: project.afterImages[0] }} style={[styles.thumbnail, { width: 84, height: 84, borderRadius: 16 }]} />
+                ) : (
+                    <View style={[styles.thumbnail, { width: 84, height: 84, borderRadius: 16, backgroundColor: colors.inputBg, alignItems: 'center', justifyContent: 'center' }]}>
+                        {React.createElement(getProjectIcon(project.type), { color: colors.textMuted, size: 24 })}
+                    </View>
                 )}
-                <View style={{ flex: 1 }}>
-                    <View style={styles.projectHeader}>
-                        <View style={[styles.statusDot, { backgroundColor: statusColor(project.status) }]} />
-                        <Text style={styles.projectType}>{project.type.toUpperCase()}</Text>
+                
+                <View style={{ flex: 1, marginLeft: 6 }}>
+                    <View style={[styles.projectHeader, { marginBottom: 6 }]}>
+                        <View style={styles.iconGlowContainer}>
+                            {React.createElement(getProjectIcon(project.type), {
+                                color: colors.primary,
+                                size: 12
+                            })}
+                        </View>
+                        <Text style={[styles.projectType, { fontSize: 9, opacity: 0.8 }]}>{project.type.toUpperCase()}</Text>
+                        
                         {project.distance !== undefined && (
-                            <View style={[styles.distBadge, { borderColor: project.distance <= 500 ? colors.success : colors.transparentBorder }]}>
-                                <Text style={[styles.distText, { color: project.distance <= 500 ? colors.success : colors.textMuted }]}>{Math.round(project.distance)}m</Text>
+                            <View style={[styles.distBadge, { backgroundColor: project.distance <= userRadius ? colors.success + '15' : 'transparent', borderColor: project.distance <= userRadius ? colors.success + '40' : colors.transparentBorder }]}>
+                                <Text style={[styles.distText, { color: project.distance <= userRadius ? colors.success : colors.textMuted, fontSize: 9 }]}>{Math.round(project.distance)}m</Text>
                             </View>
                         )}
                     </View>
-                    <Text style={styles.projectName}>{project.name}</Text>
-                    <Text style={styles.projectDesc} numberOfLines={2}>{project.description}</Text>
-                    {isHighlight && project.areaImpact && (
-                        <View style={styles.impactBadge}>
-                            <Sparkles color={colors.primary} size={14} />
-                            <Text style={styles.impactText}>{project.areaImpact}</Text>
-                        </View>
-                    )}
-                    <View style={styles.authorRow}>
-                        <User color={colors.textMuted} size={12} />
-                        <Text style={styles.authorName}>{project.authorName || 'Govt Department'}</Text>
-                    </View>
-
+                    
+                    <Text style={[styles.projectName, { fontSize: 16, marginBottom: 4 }]} numberOfLines={1}>{project.name}</Text>
+                    <Text style={[styles.projectDesc, { fontSize: 13, marginBottom: 10, opacity: 0.7 }]} numberOfLines={2}>{project.description}</Text>
+                    
                     <View style={styles.projectFooter}>
-                        <View style={styles.statsRow}>
-                            <View style={styles.statItem}>
-                                <ThumbsUp color={colors.primary} size={14} />
-                                <Text style={styles.statValue}>{project.likes || 0}</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <ThumbsDown color={colors.textMuted} size={14} />
-                                <Text style={styles.statValue}>{project.dislikes || 0}</Text>
-                            </View>
+                        <View style={styles.authorRow}>
+                            <User color={colors.primary} size={10} />
+                            <Text style={[styles.authorName, { fontSize: 10, color: colors.text }]}>{project.authorName || 'Govt Dept'}</Text>
                         </View>
-                        <Text style={styles.projectBudget}>{formatBudget(project.budget)}</Text>
+                        
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 8 }}>
+                            <MapPin color={colors.textMuted} size={10} style={{ marginRight: 4 }} />
+                            <Text style={[styles.statValue, { fontSize: 10, color: colors.textMuted, flexShrink: 1 }]} numberOfLines={1}>
+                                {project.location?.address?.split(',')[0] || project.city || project.state || 'N/A'}
+                            </Text>
+                        </View>
                     </View>
                 </View>
             </View>
@@ -553,30 +662,28 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
         <View style={styles.container}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-
-                {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.avatar}>
                         <Text style={styles.avatarText}>{getInitials(user?.name || 'U')}</Text>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 14 }}>
-                        <Text style={styles.greeting}>Hello, CivicSentinel!</Text>
-                        <View style={styles.locationBox}>
-                            <MapPin color={colors.primary} size={14} />
-                            <Text style={styles.locationText} numberOfLines={1}> {address}</Text>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.greeting}>Hello, {(user?.name || 'there').split(' ')[0]}!</Text>
+                        <View style={[styles.locationBox, { height: 'auto', minHeight: 34, paddingVertical: 6, paddingHorizontal: 12 }]}>
+                            <MapPin color={colors.primary} size={12} />
+                            <Text style={[styles.locationText, { flex: 1, height: 'auto' }]}>
+                                {[user?.city, user?.state].filter(Boolean).join(', ') || 'Location not set'}
+                            </Text>
                         </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                         <TouchableOpacity style={styles.iconBtn} onPress={() => setIsNotifModalOpen(true)}>
                             <Bell color={colors.text} size={20} />
                             {unreadCount > 0 && (
-                                <View style={styles.notifBadge}>
-                                    <Text style={styles.notifBadgeText}>{unreadCount}</Text>
-                                </View>
+                                <View style={styles.notifBadge} />
                             )}
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.iconBtn} onPress={fetchLocation} disabled={refreshing}>
-                            {refreshing ? <Activity color={colors.text} size={20} /> : <RefreshCw color={colors.text} size={20} />}
+                            {refreshing ? <Activity color={colors.text} size={20} /> : <RefreshCw color={colors.text} size={18} />}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -590,7 +697,7 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                         </View>
                         <View style={styles.liveBadge}>
                             <View style={styles.liveDot} />
-                            <Text style={styles.liveText}>500m Focus</Text>
+                            <Text style={styles.liveText}>{userRadius}m Focus</Text>
                         </View>
                     </View>
                     
@@ -607,6 +714,51 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                                 </View>
                             </View>
                             
+                            {/* Big Location Address Card */}
+                            {address ? (
+                                <View style={{
+                                    backgroundColor: colors.inputBg,
+                                    borderRadius: 16,
+                                    padding: 16,
+                                    marginBottom: 12,
+                                    borderWidth: 1,
+                                    borderColor: colors.primary + '30',
+                                    shadowColor: colors.primary,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 10,
+                                    elevation: 4,
+                                    flexDirection: 'row',
+                                    alignItems: 'flex-start',
+                                    gap: 12,
+                                }}>
+                                    <View style={{
+                                        width: 40,
+                                        height: 40,
+                                        borderRadius: 12,
+                                        backgroundColor: colors.primary + '20',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        shadowColor: colors.primary,
+                                        shadowOffset: { width: 0, height: 0 },
+                                        shadowOpacity: 0.8,
+                                        shadowRadius: 6,
+                                        elevation: 4,
+                                        flexShrink: 0,
+                                    }}>
+                                        <Navigation color={colors.primary} size={20} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 }}>
+                                            Current Location
+                                        </Text>
+                                        <Text style={{ fontSize: 15, color: colors.text, fontWeight: '600', lineHeight: 22 }}>
+                                            {address}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ) : null}
+
                             {Platform.OS === 'web' ? (
                                 <View style={styles.mapContainer}>
                                     <View style={{ position: 'relative' }}>
@@ -651,10 +803,10 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                 </View>
 
 
-                {/* Within 500m Radar Section */}
+                {/* Within Dynamic Radius Section */}
                 <View style={styles.sectionHeaderRow}>
                     <PulseRadar colors={colors} />
-                    <Text style={styles.sectionTitle}> Within 500m Radar</Text>
+                    <Text style={styles.sectionTitle}> Within {userRadius}m Radar</Text>
                 </View>
                 <Text style={styles.sectionSub}>Hyper-local projects affecting your current spot</Text>
 
@@ -663,12 +815,77 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     <View style={styles.emptyCard}>
                         <ShieldAlert color={colors.iconDefault} size={28} style={{ marginBottom: 12 }} />
                         <Text style={styles.muted}>
-                            {location ? 'No projects detected in 500m radius.' : 'Waiting for GPS...'}
+                            {location ? `No projects detected in ${userRadius}m radius.` : 'Waiting for GPS...'}
                         </Text>
                     </View>
                 ) : (
                     nearbyProjects.map((project: any) => renderProjectCard(project, true))
                 )}
+
+                {/* Recent Geofences Section */}
+                <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+                    <Clock color={colors.primary} size={20} />
+                    <Text style={styles.sectionTitle}> Recent Geofences</Text>
+                    {recentEntries.length > 0 && (
+                        <View style={[styles.liveBadge, { marginLeft: 'auto', backgroundColor: colors.primary + '20' }]}>
+                            <Text style={[styles.liveText, { color: colors.primary }]}>{recentEntries.length} In-Window</Text>
+                        </View>
+                    )}
+                    <TouchableOpacity 
+                        style={{ marginLeft: 12, padding: 8, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.transparentBorder }}
+                        onPress={() => {
+                            if (user?._id) {
+                                Alert.alert("Refresh Window", "Mark these as seen and start a fresh monitoring window?", [
+                                    { text: "Cancel", style: "cancel" },
+                                    { text: "Refresh", onPress: () => updateBatchTimer({ userId: user._id }) }
+                                ]);
+                            }
+                        }}
+                    >
+                        <RefreshCw color={colors.primary} size={14} />
+                    </TouchableOpacity>
+                </View>
+                <Text style={styles.sectionSub}>Works saved during your {user?.notificationFrequency || 'current'} window</Text>
+
+                {recentEntries.length === 0 ? (
+                    <View style={styles.emptyCard}>
+                        <Clock color={colors.textMuted} size={24} style={{ marginBottom: 8, opacity: 0.5 }} />
+                        <Text style={styles.muted}>No geofence entries saved in this window.</Text>
+                    </View>
+                ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20, paddingTop: 12 }}>
+                        {recentEntries.map((entry: any) => (
+                            <TouchableOpacity 
+                                key={entry._id} 
+                                style={[styles.card, { width: 280, marginRight: 16, marginBottom: 8, padding: 14, borderLeftWidth: 4, borderLeftColor: colors.primary }]}
+                                onPress={() => entry.projectId && onViewWork?.(entry.projectId)}
+                                activeOpacity={0.8}
+                            >
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <View style={{ flex: 1, marginRight: 8 }}>
+                                        <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 15 }} numberOfLines={1}>{entry.geoFenceName}</Text>
+                                    </View>
+                                    <View style={{ backgroundColor: colors.primary + '15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: colors.primary + '30' }}>
+                                        <Text style={{ color: colors.primary, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' }}>{entry.geoFenceType}</Text>
+                                    </View>
+                                </View>
+                                <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 12 }} numberOfLines={1}>
+                                    {entry.projectName || 'Tap to view details'}
+                                </Text>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Clock color={colors.primary} size={10} />
+                                        <Text style={{ color: colors.textMuted, fontSize: 10, marginLeft: 4, fontWeight: '600' }}>
+                                            {new Date(entry.enteredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </Text>
+                                    </View>
+                                    <ChevronRight color={colors.primary} size={14} />
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                )}
+
 
                 {/* All Projects */}
                 <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
@@ -677,12 +894,12 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                 </View>
                 <Text style={styles.sectionSub}>Complete list of government works in your city</Text>
 
-                {allProjects.length === 0 ? (
+                {allProjectsByDate.length === 0 ? (
                     <View style={styles.emptyCard}>
                         <Text style={styles.muted}>No projects found yet.</Text>
                     </View>
                 ) : (
-                    allProjects.map((project: any) => renderProjectCard(project, false))
+                    allProjectsByDate.map((project: any) => renderProjectCard(project, false))
                 )}
             </ScrollView>
 
@@ -743,7 +960,7 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                                     <Text style={{ color: colors.textMuted, marginTop: 16 }}>No notifications yet.</Text>
                                 </View>
                             ) : (
-                                userNotifications.map(notif => {
+                                userNotifications.map((notif: any) => {
                                     const isAlert = notif.type === 'proximity_alert';
                                     return (
                                         <TouchableOpacity 
@@ -808,9 +1025,27 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
         maxWidth: '95%'
     },
     locationText: { fontSize: 12, color: colors.text, fontWeight: '600' },
+    bigLocationCard: {
+        backgroundColor: colors.card,
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: colors.transparentBorder,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4
+    },
+    locationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    locationLabel: { fontSize: 10, color: colors.primary, fontWeight: '800', letterSpacing: 1 },
+    addressMain: { fontSize: 17, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+    addressSub: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
     iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.inputBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.transparentBorder },
 
     card: { backgroundColor: colors.card, borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.transparentBorder },
+    labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
     cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
     liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.transparentPrimary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginRight: 6 },
@@ -846,12 +1081,26 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
 
     emptyCard: { backgroundColor: colors.card, borderRadius: 14, padding: 24, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: colors.transparentBorder },
 
-    projectCard: { backgroundColor: colors.card, borderRadius: 16, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: colors.transparentBorder },
-    projectCardHighlight: { backgroundColor: colors.card, borderRadius: 16, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: colors.transparentPrimary },
+    projectCard: { backgroundColor: colors.card, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    projectCardHighlight: { backgroundColor: colors.card, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.primary + '40', shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
     projectHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     thumbnail: { width: 70, height: 70, borderRadius: 12, marginRight: 14, alignSelf: 'center', backgroundColor: colors.inputBg },
     projectType: { fontSize: 10, color: colors.textMuted, letterSpacing: 1, fontWeight: '700', flex: 1 },
+    iconGlowContainer: {
+        width: 24,
+        height: 24,
+        backgroundColor: colors.inputBg,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+        elevation: 4
+    },
     projectName: { fontSize: 17, fontWeight: '800', color: colors.text, marginBottom: 6 },
     projectDesc: { fontSize: 14, color: colors.textMuted, lineHeight: 22, marginBottom: 14 },
     impactBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.transparentPrimary, padding: 10, borderRadius: 10, marginBottom: 14 },

@@ -9,17 +9,16 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as ai_internal from "../ai_internal.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
-import type * as booths from "../booths.js";
+import type * as auth_internal from "../auth_internal.js";
 import type * as files from "../files.js";
 import type * as geoFences from "../geoFences.js";
 import type * as geospatial from "../geospatial.js";
 import type * as issues from "../issues.js";
-import type * as neo4j from "../neo4j.js";
 import type * as notifications from "../notifications.js";
-import type * as ogd from "../ogd.js";
 import type * as projects from "../projects.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -32,17 +31,16 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  ai_internal: typeof ai_internal;
   analytics: typeof analytics;
   auth: typeof auth;
   authHelpers: typeof authHelpers;
-  booths: typeof booths;
+  auth_internal: typeof auth_internal;
   files: typeof files;
   geoFences: typeof geoFences;
   geospatial: typeof geospatial;
   issues: typeof issues;
-  neo4j: typeof neo4j;
   notifications: typeof notifications;
-  ogd: typeof ogd;
   projects: typeof projects;
   seed: typeof seed;
   users: typeof users;

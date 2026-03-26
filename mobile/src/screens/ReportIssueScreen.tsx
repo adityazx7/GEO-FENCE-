@@ -6,13 +6,13 @@ import {
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useMutation, useQuery } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { 
     AlertTriangle, Camera, MapPin, X, Plus, 
     Droplets, Lightbulb, Trash2, HelpCircle, Navigation, Clock,
-    ThumbsUp, ThumbsDown, MessageCircle, Search
+    ThumbsUp, ThumbsDown, MessageCircle, Search, Radio, RefreshCw, Activity
 } from 'lucide-react-native';
 
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -76,10 +76,7 @@ const PulseRadar = ({ colors }: { colors: any }) => {
                 shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: 0.8, shadowRadius: 6, elevation: 5
             }}>
-                <Image 
-                    source={require('../../assets/radar.png')} 
-                    style={{ width: 18, height: 18, tintColor: colors.primary }} 
-                />
+                <Radio color={colors.primary} size={18} />
             </View>
         </View>
     );
@@ -124,8 +121,27 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                         longitude: loc.coords.longitude
                     });
                     if (rev.length > 0) {
-                        const item = rev[0];
-                        setAddress(`${item.name || ''} ${item.street || ''}, ${item.city || item.district || ''}`);
+                        const first = rev[0];
+                        // Smart de-duplication and prioritization
+                        const name = first.name || '';
+                        const street = first.street || '';
+                        const subregion = first.subregion || '';
+                        const district = first.district || first.city || '';
+                        
+                        // If name is just the city name, null it to avoid redundancy
+                        const filteredName = (name && name !== district) ? name : '';
+                        
+                        const parts = [
+                    (first.name && first.name !== first.city && first.name !== first.district) ? first.name : '',
+                    first.streetNumber ? `${first.streetNumber} ${first.street}` : first.street,
+                    first.subregion,
+                    first.district || first.city,
+                    first.region,
+                    first.postalCode
+                ].filter((v, i, a) => v && a.indexOf(v) === i);
+                
+                const addr = parts.join(', ');
+                setAddress(addr || 'Unknown Location');
                     }
                 }
             } catch (e) {
@@ -259,16 +275,10 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
         return (
             <View style={styles.container}>
                 <View style={[styles.header, { justifyContent: 'space-between', marginBottom: 16 }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <PulseRadar colors={colors} />
-                            <View style={{ marginLeft: 8 }}>
-                                <Text style={styles.pageTitle}>Nearby Issues</Text>
-                                <View style={styles.locationBox}>
-                                    <MapPin color={colors.primary} size={12} />
-                                    <Text style={styles.locationText} numberOfLines={1}>{address || 'Detecting...'}</Text>
-                                </View>
-                            </View>
-                        </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <MapPin color={colors.primary} size={24} />
+                        <Text style={styles.pageTitle}>Nearby Issues</Text>
+                    </View>
                     <TouchableOpacity 
                         style={styles.topReportBtn}
                         onPress={() => setIsReporting(true)}
@@ -277,6 +287,24 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                         <Text style={styles.topReportBtnText}>Report Issue</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Big Prominent Location Card */}
+                <View style={styles.locationBox}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Navigation color={colors.primary} size={16} />
+                            <Text style={[styles.locationText, { fontSize: 11, color: colors.primary, fontWeight: '800', letterSpacing: 1, marginLeft: 6 }]}>YOUR LOCATION</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => { setLat(''); setLng(''); setAddress(''); }}>
+                            <RefreshCw color={colors.primary} size={14} />
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 4 }} numberOfLines={2}>{address || 'Detecting...'}</Text>
+                    {lat && lng ? (
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>{lat}, {lng}</Text>
+                    ) : null}
+                </View>
+
                 <Text style={styles.pageSub}>Civic problems reported within 500m of you</Text>
                 
                 <View style={styles.searchContainer}>
@@ -313,7 +341,14 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                                     onPress={() => setExpandedId(isExpanded ? null : issue._id)}
                                 >
                                     <View style={styles.cardHeader}>
-                                        <View style={[styles.cardIconBox, { backgroundColor: cat.color + '20' }]}>
+                                        <View style={[styles.cardIconBox, { 
+                                            backgroundColor: cat.color + '15', 
+                                            shadowColor: cat.color, 
+                                            shadowOffset: { width: 0, height: 0 }, 
+                                            shadowOpacity: 0.8, 
+                                            shadowRadius: 6, 
+                                            elevation: 4 
+                                        }]}>
                                             <Icon color={cat.color} size={18} />
                                         </View>
                                         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -397,7 +432,16 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
                             <TouchableOpacity key={cat.key}
                                 style={[styles.chip, active && { borderColor: cat.color, backgroundColor: cat.color + '20' }]}
                                 onPress={() => setCategory(cat.key)}>
-                                <Icon color={active ? cat.color : colors.textMuted} size={14} style={{ marginRight: 6 }} />
+                                <View style={active ? {
+                                    shadowColor: cat.color,
+                                    shadowOffset: { width: 0, height: 0 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 4,
+                                    elevation: 2,
+                                    marginRight: 6
+                                } : { marginRight: 6 }}>
+                                    <Icon color={active ? cat.color : colors.textMuted} size={14} />
+                                </View>
                                 <Text style={[styles.chipText, active && { color: cat.color }]}>
                                     {cat.label}
                                 </Text>
@@ -482,19 +526,36 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     pageTitle: { fontSize: 22, fontWeight: 'bold', color: colors.text },
     locationBox: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        marginTop: 6, 
-        backgroundColor: colors.inputBg, 
-        paddingHorizontal: 10, 
-        paddingVertical: 4, 
-        borderRadius: 8,
+        backgroundColor: colors.card,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: colors.transparentBorder,
-        alignSelf: 'flex-start',
-        maxWidth: '90%'
+        borderColor: colors.primary + '40',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
     },
     locationText: { fontSize: 11, color: colors.text, fontWeight: '600', marginLeft: 4 },
+    bigLocationCard: {
+        backgroundColor: colors.card,
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: colors.transparentBorder,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4
+    },
+    locationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    locationLabel: { fontSize: 10, color: colors.primary, fontWeight: '800', letterSpacing: 1 },
+    addressMain: { fontSize: 17, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+    addressSub: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
     pageSub: { fontSize: 13, color: colors.textMuted, marginBottom: 24, marginTop: 10 },
     label: { fontSize: 11, color: colors.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
     input: { backgroundColor: colors.inputBg, borderRadius: 12, padding: 14, color: colors.text, fontSize: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.transparentBorder },

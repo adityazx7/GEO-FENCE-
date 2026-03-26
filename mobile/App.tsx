@@ -144,8 +144,7 @@ function App() {
 }
 
 // Register the root component for all platforms including web
-registerRootComponent(App);
-
+// Removed duplicate `registerRootComponent(App)` as it is handled by AppEntry.js
 export default App;
 
 const styles = StyleSheet.create({

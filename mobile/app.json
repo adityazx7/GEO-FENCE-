@@ -12,7 +12,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "CivicSentinel needs your location in the background to notify you when you enter a government project zone.",
+        "NSLocationWhenInUseUsageDescription": "CivicSentinel uses your location to show nearby government projects.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +31,7 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
         "CAMERA",
         "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",

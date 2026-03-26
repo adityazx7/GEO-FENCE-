@@ -375,3 +375,92 @@ export const getReadProjects = query({
         }
     },
 });
+
+// ===== GEOFENCE ENTRY LOGGING =====
+export const logGeofenceEntry = mutation({
+    args: {
+        userId: v.string(),
+        geoFenceId: v.id("geoFences"),
+        geoFenceName: v.string(),
+        geoFenceType: v.string(),
+        projectId: v.optional(v.id("projects")),
+        projectName: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        
+        // 1. Strict Deduplication: If this user has EVER entered this project, don't log it again.
+        // This fulfills the "must only get marked once only" requirement.
+        if (args.projectId) {
+            const existing = await ctx.db.query("geofenceEntries")
+                .withIndex("by_user_project", q => q.eq("userId", args.userId).eq("projectId", args.projectId))
+                .first();
+            
+            if (existing) {
+                console.log(`Geofence entry for project ${args.projectId} already exists for user ${args.userId}. Skipping.`);
+                return existing._id;
+            }
+        } else {
+            // Fallback for non-project geofences (if any): use the 5-minute rule
+            const recent = await ctx.db.query("geofenceEntries")
+                .withIndex("by_userId", q => q.eq("userId", args.userId))
+                .collect();
+            const alreadyLogged = recent.find(e =>
+                e.geoFenceId === args.geoFenceId &&
+                (now - e.enteredAt) < 5 * 60 * 1000
+            );
+            if (alreadyLogged) return alreadyLogged._id;
+        }
+
+        return await ctx.db.insert("geofenceEntries", {
+            userId: args.userId,
+            geoFenceId: args.geoFenceId,
+            geoFenceName: args.geoFenceName,
+            geoFenceType: args.geoFenceType,
+            projectId: args.projectId,
+            projectName: args.projectName,
+            enteredAt: now,
+        });
+    },
+});
+
+export const getRecentGeofenceEntries = query({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        if (!args.userId) return [];
+        
+        let user: any = null;
+        try {
+            if (args.userId.includes(":")) user = await ctx.db.get(args.userId as any);
+        } catch(e) {}
+        
+        if (!user) {
+            user = await ctx.db.query("users")
+                .withIndex("by_email", q => q.eq("email", args.userId))
+                .unique();
+        }
+        if (!user) {
+            user = await ctx.db.query("users")
+                .withIndex("by_clerkId", q => q.eq("clerkId", args.userId))
+                .unique();
+        }
+
+        const lastBatchAt = user?.lastBatchNotificationAt || 0;
+        
+        const entries = await ctx.db.query("geofenceEntries")
+            .withIndex("by_userId", q => q.eq("userId", args.userId))
+            .collect();
+            
+        return entries
+            .filter(e => e.enteredAt >= lastBatchAt)
+            .sort((a, b) => b.enteredAt - a.enteredAt);
+    },
+});
+
+// Save/update user push token
+export const savePushToken = mutation({
+    args: { userId: v.id("users"), token: v.string() },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.userId, { pushToken: args.token });
+    },
+});

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useQuery } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, User as UserIcon, Building, Moon, Sun, Monitor, List, ThumbsUp, MessageSquare, ChevronRight, Package } from 'lucide-react-native';
+import { LogOut, User as UserIcon, Building, Moon, Sun, Monitor, List, ThumbsUp, MessageSquare, ChevronRight, Package, Bell } from 'lucide-react-native';
 import MyPostsScreen from './MyPostsScreen';
 import GovernmentWorkScreen from './GovernmentWorkScreen';
+import PreferencesScreen from './PreferencesScreen';
 
 export default function ProfileScreen() {
     const { user, logout } = useAuth();
     const { colors, mode, setMode, isDark } = useTheme();
-    const [activeView, setActiveView] = useState<'profile' | 'myPosts' | 'projectDetails'>('profile');
+    const [activeView, setActiveView] = useState<'profile' | 'myPosts' | 'projectDetails' | 'preferences'>('profile');
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const styles = createStyles(colors, isDark);
 
@@ -32,6 +33,10 @@ export default function ProfileScreen() {
 
     if (activeView === 'projectDetails' && selectedProjectId) {
         return <GovernmentWorkScreen projectId={selectedProjectId} onBack={() => setActiveView('myPosts')} />;
+    }
+
+    if (activeView === 'preferences') {
+        return <PreferencesScreen onBack={() => setActiveView('profile')} />;
     }
 
     const handleLogout = () => {
@@ -154,6 +159,18 @@ export default function ProfileScreen() {
                 {/* Settings */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>App Settings</Text>
+                    
+                    <TouchableOpacity 
+                        style={[styles.infoRow, { borderBottomWidth: 1 }]} 
+                        onPress={() => setActiveView('preferences')}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Bell color={colors.primary} size={18} />
+                            <Text style={[styles.infoLabel, { marginLeft: 10, color: colors.text }]}>Preferences & Alerts</Text>
+                        </View>
+                        <ChevronRight color={colors.textMuted} size={16} />
+                    </TouchableOpacity>
+
                     <View style={styles.infoRow}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             {isDark ? <Moon color={colors.textMuted} size={18} /> : <Sun color={colors.textMuted} size={18} />}

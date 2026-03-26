@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useQuery } from 'convex/react';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Bell, MapPin, ArrowRight, CheckCircle2, Hammer, ClipboardList, AlertTriangle, Search, TrendingUp, Filter, BarChart3, ChevronDown, ChevronUp } from 'lucide-react-native';
@@ -15,8 +16,8 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
     const [sectorFilter, setSectorFilter] = useState('all');
     const [budgetSort, setBudgetSort] = useState('none'); // 'none', 'high-low', 'low-high'
 
-    const projects = useQuery('projects:list' as any) || [];
-    const notifications = useQuery('notifications:listAll' as any) || [];
+    const projects = useQuery(api.projects.list) || [];
+    const notifications = useQuery(api.notifications.listAll) || [];
 
     // Trending: Top 3 High Budget Projects from the last 3 days (Static to search)
     const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);

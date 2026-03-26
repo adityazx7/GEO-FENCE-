@@ -1,0 +1,6 @@
+../.convex/
+node_modules/
+android/
+ios/
+build/
+.git/

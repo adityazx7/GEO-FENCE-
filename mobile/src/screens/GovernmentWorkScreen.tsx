@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Platform, TextInput, ActivityIndicator, Alert, Modal, KeyboardAvoidingView } from 'react-native';
 import { useQuery, useAction, useMutation } from 'convex/react';
-import { api } from '../../../convex/_generated/api';
+import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { ArrowLeft, MapPin, Code, Receipt, Calendar, Camera, Languages, Sparkles, ThumbsUp, ThumbsDown, MessageSquare, Trash2, Edit3, User, Send, X } from 'lucide-react-native';
@@ -412,9 +412,11 @@ export default function GovernmentWorkScreen({ projectId, onBack }: { projectId:
                     <View style={[styles.statBox, { marginLeft: 6 }]}>
                         <View style={styles.statIconRow}>
                             <Calendar color={colors.textMuted} size={14} />
-                            <Text style={styles.statLabel}>Timeline</Text>
+                            <Text style={styles.statLabel}>Posted On</Text>
                         </View>
-                        <Text style={styles.statValue}>{project.completionDate || 'Ongoing'}</Text>
+                        <Text style={styles.statValue}>
+                            {new Date(project.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </Text>
                     </View>
                 </View>
 
