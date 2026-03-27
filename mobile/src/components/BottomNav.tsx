@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { Map, IndianRupee, Newspaper, User as UserIcon, Plus, ShieldAlert } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Tab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
 
@@ -11,7 +12,8 @@ export default function BottomNav({ activeTab, onTabChange, userType }: {
     userType: 'citizen' | 'organization';
 }) {
     const { colors } = useTheme();
-    const styles = createStyles(colors);
+    const insets = useSafeAreaInsets();
+    const styles = createStyles(colors, insets);
     const isOrg = userType === 'organization';
 
     return (
@@ -49,13 +51,13 @@ function TabButton({ tab, label, Icon, active, onPress, colors }: any) {
     );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, insets: any) => StyleSheet.create({
     container: {
         flexDirection: 'row',
         backgroundColor: colors.card,
         borderTopWidth: 1,
         borderTopColor: colors.border,
-        paddingBottom: 20,
+        paddingBottom: Math.max(insets.bottom, 15), // Dynamic padding
         paddingTop: 10,
         position: 'absolute',
         bottom: 0,

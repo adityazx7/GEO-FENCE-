@@ -8,14 +8,14 @@
 
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
   Creating an optimized production build ...
-✓ Compiled successfully in 12.2s
+✓ Compiled successfully in 18.8s
   Running TypeScript ...
   Collecting page data using 7 workers ...
   Generating static pages using 7 workers (0/14) ...
   Generating static pages using 7 workers (3/14) 
   Generating static pages using 7 workers (6/14) 
   Generating static pages using 7 workers (10/14) 
-✓ Generating static pages using 7 workers (14/14) in 1259.8ms
+✓ Generating static pages using 7 workers (14/14) in 1792.0ms
   Finalizing page optimization ...
 
 Route (app)

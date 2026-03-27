@@ -4,6 +4,7 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { registerRootComponent } from 'expo';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -143,7 +144,9 @@ function App() {
             <ThemeProvider>
                 <ConvexProvider client={convex}>
                     <AuthProvider>
-                        <AppNavigator />
+                        <SafeAreaProvider>
+                            <AppNavigator />
+                        </SafeAreaProvider>
                     </AuthProvider>
                 </ConvexProvider>
             </ThemeProvider>

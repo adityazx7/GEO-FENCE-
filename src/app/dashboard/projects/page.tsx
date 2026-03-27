@@ -8,6 +8,7 @@ import {
     IndianRupee, Activity, CheckCircle2, Clock
 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
+import { useUser } from '@clerk/nextjs';
 import { api } from '../../../../convex/_generated/api';
 
 export default function ProjectsPage() {
@@ -15,6 +16,9 @@ export default function ProjectsPage() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<any>(null);
+
+    const { user } = useUser();
+    const isAdmin = useQuery(api.users.isAdmin, user?.id ? { clerkId: user.id } : "skip");
 
     // Form state
     const [formData, setFormData] = useState({
@@ -177,13 +181,15 @@ export default function ProjectsPage() {
                     </div>
                 </div>
 
-                <button
-                    onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="btn-primary"
-                    style={{ fontSize: '0.85rem', padding: '10px 20px' }}
-                >
-                    <Plus size={16} /> Add New Project
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => { resetForm(); setIsModalOpen(true); }}
+                        className="btn-primary"
+                        style={{ fontSize: '0.85rem', padding: '10px 20px' }}
+                    >
+                        <Plus size={16} /> Add New Project
+                    </button>
+                )}
             </div>
 
             {/* Modal */}
@@ -357,7 +363,7 @@ export default function ProjectsPage() {
                             <th>Budget</th>
                             <th>Location</th>
                             <th>Engagement</th>
-                            <th>Actions</th>
+                            {isAdmin && <th>Actions</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -409,22 +415,24 @@ export default function ProjectsPage() {
                                         </div>
                                     </div>
                                 </td>
-                                <td>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button 
-                                            onClick={() => handleEdit(p)}
-                                            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDelete(p._id)}
-                                            style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
+                                {isAdmin && (
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button 
+                                                onClick={() => handleEdit(p)}
+                                                style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(p._id)}
+                                                style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>

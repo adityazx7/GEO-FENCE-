@@ -14,16 +14,16 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 const navItems = [
-    { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Geo-Fences', href: '/dashboard/geofences', icon: MapPin },
-    { label: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-    { label: 'Booths', href: '/dashboard/booths', icon: Building2 },
-    { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-    { label: 'Manage Users', href: '/dashboard/users', icon: Users },
-    { label: 'Manage Projects', href: '/dashboard/projects', icon: Box },
-    { label: 'Reported Issues', href: '/dashboard/issues', icon: AlertTriangle },
-    { label: 'Command Center', href: '/dashboard/command-center', icon: Box },
-    { label: 'Transparency', href: '/dashboard/transparency', icon: Shield },
+    { label: 'Overview', href: '/dashboard', icon: LayoutDashboard, requiresAdmin: false },
+    { label: 'Geo-Fences', href: '/dashboard/geofences', icon: MapPin, requiresAdmin: false },
+    { label: 'Notifications', href: '/dashboard/notifications', icon: Bell, requiresAdmin: true },
+    { label: 'Booths', href: '/dashboard/booths', icon: Building2, requiresAdmin: true },
+    { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, requiresAdmin: true },
+    { label: 'Manage Users', href: '/dashboard/users', icon: Users, requiresAdmin: true },
+    { label: 'Manage Projects', href: '/dashboard/projects', icon: Box, requiresAdmin: false },
+    { label: 'Reported Issues', href: '/dashboard/issues', icon: AlertTriangle, requiresAdmin: true },
+    { label: 'Command Center', href: '/dashboard/command-center', icon: Box, requiresAdmin: false },
+    { label: 'Transparency', href: '/dashboard/transparency', icon: Shield, requiresAdmin: false },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -49,10 +49,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     useEffect(() => {
         if (isUserLoaded && !user) {
             router.push('/sign-in');
-        } else if (isAdmin === false) {
-            router.push('/');
         }
-    }, [user, isUserLoaded, isAdmin, router]);
+    }, [user, isUserLoaded, router]);
 
     if (!isUserLoaded || isAdmin === undefined) {
         return <div style={{ 
@@ -65,7 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>;
     }
 
-    if (isAdmin === false) return null; // Component will redirect in useEffect
+    // `isAdmin` is false for regular 'citizen' users. They have limited dashboard access.
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -114,7 +112,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Navigation */}
                 <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {navItems.map((item) => {
+                    {navItems.filter(item => !item.requiresAdmin || isAdmin).map((item) => {
                         const isActive = pathname === item.href ||
                             (item.href !== '/dashboard' && pathname.startsWith(item.href));
                         return (
@@ -201,18 +199,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        {/* Live indicator */}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            padding: '6px 14px', borderRadius: '100px',
-                            background: 'var(--accent-green-glow)',
-                            border: '1px solid rgba(34, 197, 94, 0.2)',
-                        }}>
-                            <div className="pulse-dot" />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--accent-green)', fontWeight: 600 }}>
-                                Live
-                            </span>
-                        </div>
+                        {/* Live/Role indicator */}
+                        {isAdmin === false ? (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                padding: '6px 14px', borderRadius: '100px',
+                                background: 'var(--accent-blue-glow)',
+                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                            }}>
+                                <Shield size={14} color="var(--accent-blue)" />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--accent-blue)', fontWeight: 600 }}>
+                                    Citizen View
+                                </span>
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                padding: '6px 14px', borderRadius: '100px',
+                                background: 'var(--accent-green-glow)',
+                                border: '1px solid rgba(34, 197, 94, 0.2)',
+                            }}>
+                                <div className="pulse-dot" />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--accent-green)', fontWeight: 600 }}>
+                                    Live Admin
+                                </span>
+                            </div>
+                        )}
 
                         {/* Clerk User Button */}
                         <div style={{

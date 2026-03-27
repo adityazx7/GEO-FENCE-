@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Plus, Search, Filter, Edit2, Trash2, Eye, X, Activity, Zap } from 'lucide-react';
+import { MapPin, Plus, Search, Filter, Edit2, Trash2, Eye, Activity, Zap, X } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
+import { useUser } from '@clerk/nextjs';
 import { api } from '../../../../convex/_generated/api';
 
 // Dynamically import InteractiveMap to avoid SSR issues with window/leaflet
@@ -23,6 +24,9 @@ export default function GeoFencesPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGeoFence, setEditingGeoFence] = useState<any>(null);
     const [visualMode, setVisualMode] = useState<'circle' | 'dots'>('circle');
+
+    const { user } = useUser();
+    const isAdmin = useQuery(api.users.isAdmin, user?.id ? { clerkId: user.id } : "skip");
 
     // Form state
     const [formData, setFormData] = useState({
@@ -183,14 +187,15 @@ export default function GeoFencesPage() {
                         ))}
                     </div>
                 </div>
-
-                <button
-                    onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="btn-primary"
-                    style={{ fontSize: '0.85rem', padding: '10px 20px' }}
-                >
-                    <Plus size={16} /> Create Geo-Fence
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => { resetForm(); setIsModalOpen(true); }}
+                        className="btn-primary"
+                        style={{ fontSize: '0.85rem', padding: '10px 20px' }}
+                    >
+                        <Plus size={16} /> Create Geo-Fence
+                    </button>
+                )}
             </div>
 
             {/* Modal Overlay */}
@@ -387,7 +392,7 @@ export default function GeoFencesPage() {
                             <th>Radius</th>
                             <th>Triggers</th>
                             <th>Linked Project ID</th>
-                            <th>Actions</th>
+                            {isAdmin && <th>Actions</th>}
                         </tr>
                     </thead>
                     <tbody>
@@ -415,25 +420,27 @@ export default function GeoFencesPage() {
                                 <td>{gf.radius >= 1000 ? `${gf.radius / 1000}km` : `${gf.radius}m`}</td>
                                 <td style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>{(gf.triggerCount || 0).toLocaleString()}</td>
                                 <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{gf.linkedProjectId?.slice(-6) || 'N/A'}</td>
-                                <td>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer' }}>
-                                            <Eye size={16} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleEdit(gf)}
-                                            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer' }}
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(gf._id)}
-                                            style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
+                                {isAdmin && (
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer' }}>
+                                                <Eye size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleEdit(gf)}
+                                                style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer' }}
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(gf._id)}
+                                                style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer' }}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>

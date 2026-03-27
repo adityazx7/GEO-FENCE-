@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@backend/_generated/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface User {
     _id: string;
@@ -59,8 +60,37 @@ function AuthProviderInner({ children, setCtx }: { children: ReactNode; setCtx: 
     // Merge: live DB data wins over cached local state
     const user: User | null = liveUser !== undefined ? (liveUser ?? null) : baseUser;
 
+    // 1. Initial hydration from AsyncStorage
+    useEffect(() => {
+        const loadUser = async () => {
+            try {
+                const savedUser = await AsyncStorage.getItem('auth_user');
+                if (savedUser) {
+                    setBaseUser(JSON.parse(savedUser));
+                }
+            } catch (e) {
+                console.error('Failed to load user', e);
+            } finally {
+                // We'll set isLoading to false in the parent once ctx is updated
+            }
+        };
+        loadUser();
+    }, []);
+
+    // 2. Persist baseUser to AsyncStorage whenever it changes
+    useEffect(() => {
+        if (baseUser) {
+            AsyncStorage.setItem('auth_user', JSON.stringify(baseUser));
+        } else {
+            AsyncStorage.removeItem('auth_user');
+        }
+    }, [baseUser]);
+
     const login = (userData: User) => setBaseUser(userData);
-    const logout = () => setBaseUser(null);
+    const logout = () => {
+        setBaseUser(null);
+        AsyncStorage.removeItem('auth_user');
+    };
 
     useEffect(() => {
         setCtx({ user, isLoading: false, login, logout, pendingEmail, setPendingEmail });
