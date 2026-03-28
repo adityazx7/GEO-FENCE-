@@ -60,7 +60,7 @@ export default function ProfileScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
                 {/* Avatar Card */}
                 <View style={styles.avatarCard}>
                     <View style={styles.avatar}>

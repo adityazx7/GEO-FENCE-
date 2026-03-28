@@ -1,8 +1,10 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Platform, ViewStyle } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../context/ThemeContext';
 import { Map, IndianRupee, Newspaper, User as UserIcon, Plus, ShieldAlert } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GlassCard from './GlassCard';
 
 type Tab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
 
@@ -11,79 +13,133 @@ export default function BottomNav({ activeTab, onTabChange, userType }: {
     onTabChange: (tab: Tab) => void;
     userType: 'citizen' | 'organization';
 }) {
-    const { colors } = useTheme();
+    const { colors, isDark } = useTheme();
     const insets = useSafeAreaInsets();
-    const styles = createStyles(colors, insets);
     const isOrg = userType === 'organization';
 
     return (
-        <View style={styles.container}>
-            <TabButton tab="home" label="Map" Icon={Map} active={activeTab} onPress={onTabChange} colors={colors} />
-            <TabButton tab="initiatives" label="Initiatives" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} />
+        <View style={[styles.outerContainer, { bottom: Math.max(insets.bottom + 10, 20) }]}>
+            <GlassCard intensity={80} style={[styles.container, isOrg && styles.containerOrg] as any}>
+                <TabButton tab="home" label="Map" Icon={Map} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+                
+                {isOrg && (
+                    <TabButton tab="initiatives" label="Impact" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+                )}
 
-            <TabButton tab="budget" label="Budget" Icon={IndianRupee} active={activeTab} onPress={onTabChange} colors={colors} />
-            
-            {/* Center: + button for org */}
-            {isOrg && (
-                <TouchableOpacity style={styles.fabContainer} onPress={() => onTabChange('addWork')} activeOpacity={0.8}>
-                    <View style={[styles.fab, activeTab === 'addWork' && styles.fabActive]}>
-                        <Plus color={activeTab === 'addWork' ? colors.background : colors.primary} size={18} />
-                    </View>
-                    <Text style={[styles.label, activeTab === 'addWork' && styles.labelActive, { fontSize: 9 }]}>Add</Text>
-                </TouchableOpacity>
-            )}
+                <TabButton tab="budget" label="Budget" Icon={IndianRupee} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+                
+                {isOrg ? (
+                    <TouchableOpacity style={styles.fabContainer} onPress={() => onTabChange('addWork')} activeOpacity={0.8}>
+                        <View style={[styles.fab, activeTab === 'addWork' && styles.fabActive]}>
+                            <Plus color={activeTab === 'addWork' ? colors.background : colors.primary} size={22} />
+                        </View>
+                    </TouchableOpacity>
+                ) : (
+                    <TabButton tab="reportIssue" label="Report" Icon={ShieldAlert} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+                )}
 
-            <TabButton tab="reportIssue" label="Report" Icon={ShieldAlert} active={activeTab} onPress={onTabChange} colors={colors} />
+                {!isOrg && (
+                    <TabButton tab="initiatives" label="Impact" Icon={Newspaper} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+                )}
 
-            <TabButton tab="profile" label="Profile" Icon={UserIcon} active={activeTab} onPress={onTabChange} colors={colors} />
+                {isOrg && (
+                    <TabButton tab="reportIssue" label="Report" Icon={ShieldAlert} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+                )}
+
+                <TabButton tab="profile" label="Profile" Icon={UserIcon} active={activeTab} onPress={onTabChange} colors={colors} isSixSlots={isOrg} />
+            </GlassCard>
         </View>
     );
 }
 
-function TabButton({ tab, label, Icon, active, onPress, colors }: any) {
+function TabButton({ tab, label, Icon, active, onPress, colors, isSixSlots }: any) {
     const isActive = active === tab;
     return (
-        <TouchableOpacity style={{ flex: 1, alignItems: 'center', paddingVertical: 6, position: 'relative' }} onPress={() => onPress(tab)} activeOpacity={0.7}>
-            <Icon color={isActive ? colors.primary : colors.iconDefault} size={22} style={{ marginBottom: 4 }} />
-            <Text style={{ fontSize: 10, color: isActive ? colors.primary : colors.textMuted, fontWeight: isActive ? '700' : '500' }}>{label}</Text>
-            {isActive && <View style={{ position: 'absolute', top: -10, width: 20, height: 3, borderRadius: 2, backgroundColor: colors.primary }} />}
+        <TouchableOpacity 
+            style={[styles.tabButton, isSixSlots && { paddingHorizontal: 2 }]} 
+            onPress={() => onPress(tab)} 
+            activeOpacity={0.7}
+        >
+            <Icon 
+                color={isActive ? colors.primary : colors.textMuted} 
+                size={isSixSlots ? 20 : 24} 
+                strokeWidth={isActive ? 2.5 : 2}
+            />
+            <Text 
+                numberOfLines={1}
+                style={[
+                    styles.label, 
+                    { color: isActive ? colors.primary : colors.textMuted, fontSize: isSixSlots ? 8 : 10 },
+                    isActive && styles.labelActive
+                ]}
+            >
+                {label}
+            </Text>
+            {isActive && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
         </TouchableOpacity>
     );
 }
 
-const createStyles = (colors: any, insets: any) => StyleSheet.create({
+const styles = StyleSheet.create({
+    outerContainer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+        alignItems: 'center',
+    },
     container: {
         flexDirection: 'row',
-        backgroundColor: colors.card,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        paddingBottom: Math.max(insets.bottom, 15), // Dynamic padding
-        paddingTop: 10,
+        height: 70,
+        borderRadius: 35,
+        paddingHorizontal: 8,
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        width: '100%',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+    },
+    containerOrg: {
+        paddingHorizontal: 4,
+    },
+    tabButton: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+    },
+    label: {
+        fontSize: 10,
+        marginTop: 4,
+        fontWeight: '500',
+    },
+    labelActive: {
+        fontWeight: '700',
+    },
+    activeIndicator: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        top: 0,
+        width: 4,
+        height: 4,
+        borderRadius: 2,
     },
     fabContainer: {
         flex: 1,
         alignItems: 'center',
-        paddingVertical: 2,
+        justifyContent: 'center',
     },
     fab: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: colors.transparentPrimary,
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: 'rgba(0,212,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 4,
-        marginTop: -16,
         borderWidth: 1,
-        borderColor: colors.primary,
+        borderColor: 'rgba(0,212,255,0.3)',
     },
     fabActive: {
-        backgroundColor: colors.primary,
+        backgroundColor: '#00d4ff',
     },
-    label: { fontSize: 10, color: colors.textMuted, fontWeight: '500' },
-    labelActive: { color: colors.primary, fontWeight: '700' },
 });

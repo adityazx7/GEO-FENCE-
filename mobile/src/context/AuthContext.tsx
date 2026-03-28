@@ -50,6 +50,7 @@ const AuthContext = createContext<AuthContextType>({
 function AuthProviderInner({ children, setCtx }: { children: ReactNode; setCtx: (v: AuthContextType) => void }) {
     const [baseUser, setBaseUser] = useState<User | null>(null);
     const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     // Live Convex subscription — re-fetches whenever the DB record changes
     const liveUser = useQuery(
@@ -60,18 +61,19 @@ function AuthProviderInner({ children, setCtx }: { children: ReactNode; setCtx: 
     // Merge: live DB data wins over cached local state
     const user: User | null = liveUser !== undefined ? (liveUser ?? null) : baseUser;
 
-    // 1. Initial hydration from AsyncStorage
+    // 1. Initial hydration from AsyncStorage — DISABLED per user request for "Login First"
     useEffect(() => {
         const loadUser = async () => {
             try {
-                const savedUser = await AsyncStorage.getItem('auth_user');
-                if (savedUser) {
-                    setBaseUser(JSON.parse(savedUser));
-                }
+                // To force login screen first, we don't load the user here
+                // const savedUser = await AsyncStorage.getItem('auth_user');
+                // if (savedUser) {
+                //     setBaseUser(JSON.parse(savedUser));
+                // }
             } catch (e) {
                 console.error('Failed to load user', e);
             } finally {
-                // We'll set isLoading to false in the parent once ctx is updated
+                setIsLoaded(true);
             }
         };
         loadUser();
@@ -79,12 +81,14 @@ function AuthProviderInner({ children, setCtx }: { children: ReactNode; setCtx: 
 
     // 2. Persist baseUser to AsyncStorage whenever it changes
     useEffect(() => {
+        if (!isLoaded) return;
+        
         if (baseUser) {
             AsyncStorage.setItem('auth_user', JSON.stringify(baseUser));
         } else {
             AsyncStorage.removeItem('auth_user');
         }
-    }, [baseUser]);
+    }, [baseUser, isLoaded]);
 
     const login = (userData: User) => setBaseUser(userData);
     const logout = () => {
@@ -93,8 +97,8 @@ function AuthProviderInner({ children, setCtx }: { children: ReactNode; setCtx: 
     };
 
     useEffect(() => {
-        setCtx({ user, isLoading: false, login, logout, pendingEmail, setPendingEmail });
-    }, [user, pendingEmail]);
+        setCtx({ user, isLoading: !isLoaded, login, logout, pendingEmail, setPendingEmail });
+    }, [user, pendingEmail, isLoaded]);
 
     return <>{children}</>;
 }

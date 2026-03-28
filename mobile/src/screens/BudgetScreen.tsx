@@ -1,9 +1,11 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { useQuery } from 'convex/react';
 import { api } from '@backend/_generated/api';
 import { useTheme } from '../context/ThemeContext';
 import { Activity, Rocket, Car, Construction, TrainFront, Building2, Landmark, Package, List, ArrowLeft, ChevronRight, MapPin } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import GlassCard from '../components/GlassCard';
 
 const SECTORS = [
     { key: 'hospital', label: 'Healthcare', Icon: Activity, color: '#f43f5e' },
@@ -17,10 +19,10 @@ const SECTORS = [
 ];
 
 export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: string) => void }) {
-    const [selectedSectorKey, setSelectedSectorKey] = React.useState<string | null>(null);
+    const [selectedSectorKey, setSelectedSectorKey] = useState<string | null>(null);
     const projects = useQuery(api.projects.list) || [];
-    const { colors } = useTheme();
-    const styles = createStyles(colors);
+    const { colors, isDark } = useTheme();
+    const styles = createStyles(colors, isDark);
 
     const formatBudget = (amount: number) => {
         if (!amount || amount === 0) return "₹0.0";
@@ -44,6 +46,15 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
 
         return (
             <View style={styles.container}>
+                <LinearGradient
+                    colors={isDark ? ['#080b14', '#0d1225'] : ['#f1f5f9', '#e2e8f0']}
+                    style={StyleSheet.absoluteFill}
+                />
+                <StatusBar 
+                    barStyle={isDark ? "light-content" : "dark-content"} 
+                    backgroundColor="transparent" 
+                    translucent 
+                />
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => setSelectedSectorKey(null)} style={styles.backBtn}>
                         <ArrowLeft color={colors.text} size={24} />
@@ -52,7 +63,7 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                    <View style={[styles.statsRow, { backgroundColor: sector?.color + '10', borderColor: sector?.color + '30' }]}>
+                    <GlassCard intensity={30} style={[styles.statsRow, { borderColor: sector?.color + '40' }] as any}>
                         <View style={styles.statItem}>
                             <Text style={styles.statLabel}>Projects</Text>
                             <Text style={[styles.statValue, { color: sector?.color }]}>{sectorProjects.length}</Text>
@@ -64,30 +75,33 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
                                 {formatBudget(sectorProjects.reduce((sum: number, p: any) => sum + (p.budget || 0), 0))}
                             </Text>
                         </View>
-                    </View>
+                    </GlassCard>
 
                     {sectorProjects.map((p: any) => (
                         <TouchableOpacity 
                             key={p._id} 
                             style={styles.projectItem}
                             onPress={() => onViewProject?.(p._id)}
+                            activeOpacity={0.8}
                         >
-                            <View style={styles.projectInfo}>
-                                <Text style={styles.projectName}>{p.name}</Text>
-                                <View style={styles.projectMeta}>
-                                    <MapPin size={12} color={colors.textMuted} />
-                                    <Text style={styles.projectAddress} numberOfLines={1}>{p.location?.address || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.projectFooter}>
-                                    <View style={[styles.statusBadge, { backgroundColor: p.status === 'completed' ? '#22c55e20' : '#f59e0b20' }]}>
-                                        <Text style={[styles.statusText, { color: p.status === 'completed' ? '#22c55e' : '#f59e0b' }]}>
-                                            {p.status.replace('_', ' ')}
-                                        </Text>
+                            <GlassCard intensity={20} style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+                                <View style={styles.projectInfo}>
+                                    <Text style={styles.projectName}>{p.name}</Text>
+                                    <View style={styles.projectMeta}>
+                                        <MapPin size={12} color={colors.textMuted} />
+                                        <Text style={styles.projectAddress} numberOfLines={1}>{p.location?.address || 'N/A'}</Text>
                                     </View>
-                                    <Text style={styles.projectBudget}>{formatBudget(p.budget)}</Text>
+                                    <View style={styles.projectFooter}>
+                                        <View style={[styles.statusBadge, { backgroundColor: p.status === 'completed' ? '#22c55e15' : '#f59e0b15', borderWidth: 1, borderColor: p.status === 'completed' ? '#22c55e40' : '#f59e0b40' }]}>
+                                            <Text style={[styles.statusText, { color: p.status === 'completed' ? '#22c55e' : '#f59e0b' }]}>
+                                                {p.status.replace('_', ' ')}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.projectBudget}>{formatBudget(p.budget)}</Text>
+                                    </View>
                                 </View>
-                            </View>
-                            <ChevronRight color={colors.textMuted} size={20} />
+                                <ChevronRight color={colors.textMuted} size={20} style={{ marginLeft: 8 }} />
+                            </GlassCard>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
@@ -97,13 +111,24 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                <View style={styles.totalCard}>
-                    <Landmark color={colors.primary} size={48} style={{ marginBottom: 12, opacity: 0.8 }} />
+            <LinearGradient
+                colors={isDark ? ['#080b14', '#0d1225'] : ['#f1f5f9', '#e2e8f0']}
+                style={StyleSheet.absoluteFill}
+            />
+            <StatusBar 
+                barStyle={isDark ? "light-content" : "dark-content"} 
+                backgroundColor="transparent" 
+                translucent 
+            />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                <GlassCard intensity={50} style={styles.totalCard as any}>
+                    <View style={styles.totalIconWrap}>
+                        <Landmark color={colors.primary} size={36} />
+                    </View>
                     <Text style={styles.totalLabel}>Total Government Spending</Text>
                     <Text style={styles.totalValue}>{formatBudget(totalSpending)}</Text>
                     <Text style={styles.totalSub}>{projects.length} projects across all sectors</Text>
-                </View>
+                </GlassCard>
 
                 <Text style={styles.sectionTitle}>Budget by Sector</Text>
                 {SECTORS.map((sector) => {
@@ -119,40 +144,42 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
                     return (
                         <TouchableOpacity
                             key={sector.key}
-                            style={styles.sectorCard}
+                            style={styles.sectorCardWrap}
                             onPress={() => setSelectedSectorKey(sector.key)}
-                            activeOpacity={0.7}
+                            activeOpacity={0.8}
                         >
-                            <View style={styles.sectorHeader}>
-                                <View style={[styles.iconContainer, { backgroundColor: sector.color + '15', shadowColor: sector.color }]}>
-                                    <Icon color={sector.color} size={22} />
-                                </View>
-                                <View style={{ flex: 1, marginLeft: 14 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <Text style={styles.sectorName}>{sector.label}</Text>
-                                        <View style={[styles.percentBadge, { backgroundColor: sector.color + '10' }]}>
-                                            <Text style={[styles.percentText, { color: sector.color }]}>
-                                                {totalSpending > 0 ? Math.round((sectorSpending / totalSpending) * 100) : 0}%
-                                            </Text>
-                                        </View>
+                            <GlassCard intensity={30} style={styles.sectorCard as any}>
+                                <View style={styles.sectorHeader}>
+                                    <View style={[styles.iconContainer, { backgroundColor: sector.color + '15', shadowColor: sector.color }]}>
+                                        <Icon color={sector.color} size={22} />
                                     </View>
-                                    <Text style={styles.sectorCount}>{sectorProjectCount} projects • {completedCount} completed</Text>
+                                    <View style={{ flex: 1, marginLeft: 14 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Text style={styles.sectorName}>{sector.label}</Text>
+                                            <View style={[styles.percentBadge, { backgroundColor: sector.color + '15', borderWidth: 1, borderColor: sector.color + '30' }]}>
+                                                <Text style={[styles.percentText, { color: sector.color }]}>
+                                                    {totalSpending > 0 ? Math.round((sectorSpending / totalSpending) * 100) : 0}%
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.sectorCount}>{sectorProjectCount} projects • {completedCount} completed</Text>
+                                    </View>
                                 </View>
-                            </View>
-                            
-                            <View style={styles.budgetRow}>
-                                <Text style={styles.budgetLabel}>Allocated Budget</Text>
-                                <Text style={[styles.sectorBudget, { color: sector.color }]}>
-                                    {formatBudget(sectorSpending)}
-                                </Text>
-                            </View>
+                                
+                                <View style={styles.budgetRow}>
+                                    <Text style={styles.budgetLabel}>Allocated Budget</Text>
+                                    <Text style={[styles.sectorBudget, { color: sector.color }]}>
+                                        {formatBudget(sectorSpending)}
+                                    </Text>
+                                </View>
 
-                            <View style={styles.barBg}>
-                                <View style={[styles.barFill, {
-                                    width: `${totalSpending > 0 ? Math.min((sectorSpending / totalSpending) * 100, 100) : 0}%`,
-                                    backgroundColor: sector.color
-                                }]} />
-                            </View>
+                                <View style={styles.barBg}>
+                                    <View style={[styles.barFill, {
+                                        width: `${totalSpending > 0 ? Math.min((sectorSpending / totalSpending) * 100, 100) : 0}%`,
+                                        backgroundColor: sector.color
+                                    }]} />
+                                </View>
+                            </GlassCard>
                         </TouchableOpacity>
                     );
                 })}
@@ -161,27 +188,18 @@ export default function BudgetScreen({ onViewProject }: { onViewProject?: (id: s
     );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 50 },
-    totalCard: { backgroundColor: colors.card, borderRadius: 20, padding: 28, marginBottom: 24, borderWidth: 1, borderColor: colors.transparentBorder, alignItems: 'center' },
-    totalLabel: { fontSize: 13, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6, fontWeight: '600' },
-    totalValue: { fontSize: 36, fontWeight: 'bold', color: colors.primary },
-    totalSub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 16 },
-    sectorCard: { 
-        backgroundColor: colors.card, 
-        borderRadius: 20, 
-        padding: 20, 
-        marginBottom: 16, 
-        borderWidth: 1, 
-        borderColor: colors.transparentBorder,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3
-    },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+    container: { flex: 1, paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50 },
+    totalCard: { borderRadius: 24, padding: 32, marginBottom: 24, alignItems: 'center', borderColor: colors.primary + '30', borderWidth: 1 },
+    totalIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: colors.primary + '40', shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 5 },
+    totalLabel: { fontSize: 13, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8, fontWeight: '700' },
+    totalValue: { fontSize: 40, fontWeight: '900', color: colors.primary, letterSpacing: -1 },
+    totalSub: { fontSize: 13, color: colors.textMuted, marginTop: 8 },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 16, marginTop: 8 },
+    sectorCardWrap: { marginBottom: 16 },
+    sectorCard: { borderRadius: 24, padding: 20 },
     sectorHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+
     iconContainer: { 
         width: 44, 
         height: 44, 
@@ -203,15 +221,16 @@ const createStyles = (colors: any) => StyleSheet.create({
     barBg: { height: 6, backgroundColor: colors.inputBg, borderRadius: 3, overflow: 'hidden' },
     barFill: { height: 6, borderRadius: 3 },
 
-    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingTop: 10 },
-    backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
-    statsRow: { flexDirection: 'row', padding: 20, borderRadius: 16, marginBottom: 24, borderWidth: 1, alignItems: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.inputBg, alignItems: 'center', justifyContent: 'center', marginRight: 16, borderWidth: 1, borderColor: colors.transparentBorder },
+    headerTitle: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
+    statsRow: { flexDirection: 'row', padding: 20, borderRadius: 24, marginBottom: 24, borderWidth: 1, alignItems: 'center' },
     statItem: { flex: 1, alignItems: 'center' },
-    statLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase' },
-    statValue: { fontSize: 18, fontWeight: 'bold' },
-    statDivider: { width: 1, height: 30, backgroundColor: colors.transparentBorder },
-    projectItem: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.transparentBorder, flexDirection: 'row', alignItems: 'center' },
+    statLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5 },
+    statValue: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
+    statDivider: { width: 1, height: 40, backgroundColor: colors.transparentBorder },
+    projectItem: { marginBottom: 12, borderRadius: 20, overflow: 'hidden' },
+
     projectInfo: { flex: 1 },
     projectName: { fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
     projectMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },

@@ -1,6 +1,26 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, StatusBar, Platform, TouchableOpacity, Modal, Image, Alert, Animated } from 'react-native';
-
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    StyleSheet, Text, View, ScrollView, TouchableOpacity,
+    Image, ActivityIndicator, Alert, Modal, Platform,
+    Dimensions, StatusBar, ViewStyle, Animated
+} from 'react-native';
+import { useQuery, useMutation, useAction } from 'convex/react';
+import { api } from '@backend/_generated/api';
+import { useTheme } from '../context/ThemeContext';
+import {
+    MapPin, Bell, Maximize2, X, RefreshCw, Activity,
+    ShieldAlert, Wallet, Navigation, Clock, List,
+    ChevronRight, ArrowUpRight, TrendingUp, Layers, CheckCircle, Trash2, User, MoreVertical,
+    Lock, Package, Construction, Rocket, Car, TrainFront, Radio, School, Plus
+} from 'lucide-react-native';
+import * as Location from 'expo-location';
+import { useAuth } from '../context/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import GlassCard from '../components/GlassCard';
+import MetricCard from '../components/MetricCard';
+import NeonButton from '../components/NeonButton';
+import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '../services/BackgroundLocation';
+import { registerForPushNotifications } from '../services/PushNotifications';
 
 // Only import WebView on native platforms — it crashes Expo Web
 let WebView: any = null;
@@ -11,96 +31,67 @@ if (Platform.OS !== 'web') {
         console.warn('react-native-webview not available');
     }
 }
-import * as Location from 'expo-location';
-import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '../services/BackgroundLocation';
-import { registerForPushNotifications } from '../services/PushNotifications';
-import { useQuery, useAction, useMutation } from 'convex/react';
-import { api } from '@backend/_generated/api';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { 
-    MapPin, Bell, RefreshCw, Maximize2, X, Activity, Sparkles, 
-    Navigation, List, ShieldAlert, ThumbsDown, 
-    MessageSquare, User, Trash2, CheckCircle, AlertTriangle,
-    Clock, XCircle, Info, ChevronRight, Search, Radio, Wallet, 
-    Rocket,
-    TrainFront,
-    Car,
-    Package,
-    Construction
-} from 'lucide-react-native';
 
-interface NotificationAlert {
-    id: string;
-    projectId: string;
-    projectName: string;
-    message: string;
-    time: Date;
-}
+const { width } = Dimensions.get('window');
 
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLng / 2) ** 2;
+const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 6371e3; // metres
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
-}
+};
 
-function formatBudget(amount: number | undefined): string {
-    if (amount === undefined || amount === null) return '₹0';
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)} K`;
-    return `₹${amount}`;
-}
+const formatBudget = (amount: number) => {
+    if (!amount) return '₹0';
+    if (amount >= 10000000) return '₹' + (amount / 10000000).toFixed(1) + ' Cr';
+    if (amount >= 100000) return '₹' + (amount / 100000).toFixed(1) + ' L';
+    if (amount >= 1000) return '₹' + (amount / 1000).toFixed(1) + ' K';
+    return '₹' + amount;
+};
 
-
+const getProjectIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+        case 'infrastructure':
+        case 'road':
+        case 'bridge': return Construction;
+        case 'transport':
+        case 'metro': return TrainFront;
+        case 'healthcare': return Activity;
+        case 'environmental': return Rocket; 
+        case 'education': return School;
+        default: return Package;
+    }
+};
 
 const PulseRadar = ({ colors }: { colors: any }) => {
-    const scale1 = useRef(new Animated.Value(1)).current;
-    const opacity1 = useRef(new Animated.Value(0.6)).current;
-    const scale2 = useRef(new Animated.Value(1)).current;
-    const opacity2 = useRef(new Animated.Value(0.4)).current;
+    const scale = useRef(new Animated.Value(1)).current;
+    const opacity = useRef(new Animated.Value(0.6)).current;
 
     useEffect(() => {
-        const pulse = (scale: Animated.Value, opacity: Animated.Value, delay: number) => {
-            Animated.loop(
-                Animated.sequence([
-                    Animated.delay(delay),
-                    Animated.parallel([
-                        Animated.timing(scale, { toValue: 2.5, duration: 3000, useNativeDriver: true }),
-                        Animated.timing(opacity, { toValue: 0, duration: 3000, useNativeDriver: true })
-                    ])
-                ])
-            ).start();
-        };
-        pulse(scale1, opacity1, 0);
-        pulse(scale2, opacity2, 1500);
+        Animated.loop(
+            Animated.parallel([
+                Animated.timing(scale, { toValue: 3, duration: 2000, useNativeDriver: true }),
+                Animated.timing(opacity, { toValue: 0, duration: 2000, useNativeDriver: true })
+            ])
+        ).start();
     }, []);
 
     return (
-        <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 16, height: 16, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, zIndex: 10 }} />
             <Animated.View style={{
-                position: 'absolute', width: 20, height: 20, borderRadius: 10,
-                backgroundColor: colors.primary, transform: [{ scale: scale1 }], opacity: opacity1,
+                position: 'absolute', width: 16, height: 16, borderRadius: 8,
+                backgroundColor: colors.primary, transform: [{ scale }], opacity,
             }} />
-            <Animated.View style={{
-                position: 'absolute', width: 20, height: 20, borderRadius: 10,
-                backgroundColor: colors.primary, transform: [{ scale: scale2 }], opacity: opacity2,
-            }} />
-            <View style={{
-                backgroundColor: colors.inputBg, borderRadius: 12, padding: 2,
-                shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8, shadowRadius: 6, elevation: 5
-            }}>
-                <Radio color={colors.primary} size={18} />
-            </View>
         </View>
     );
 };
+
 
 export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) => void }) {
     const { user } = useAuth();
@@ -689,44 +680,84 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                <View style={styles.header}>
-                    <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{getInitials(user?.name || 'U')}</Text>
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={styles.greeting}>Hello, {(user?.name || 'there').split(' ')[0]}!</Text>
-                        <View style={[styles.locationBox, { height: 'auto', minHeight: 34, paddingVertical: 6, paddingHorizontal: 12 }]}>
+            <LinearGradient
+                colors={isDark ? ['#080b14', '#0d1225'] : ['#f1f5f9', '#e2e8f0']}
+                style={StyleSheet.absoluteFill}
+            />
+            <StatusBar 
+                barStyle={isDark ? "light-content" : "dark-content"} 
+                backgroundColor="transparent" 
+                translucent 
+            />
+            
+            <View style={styles.header}>
+                <View style={styles.headerRow}>
+                    <View>
+                        <Text style={[styles.greeting, { color: colors.text }]}>
+                            Hello, <Text style={{ color: colors.primary }}>{(user?.name || 'there').split(' ')[0]}!</Text>
+                        </Text>
+                        <View style={styles.locationSummary}>
                             <MapPin color={colors.primary} size={12} />
-                            <Text style={[styles.locationText, { flex: 1, height: 'auto' }]}>
-                                {[user?.city, user?.state].filter(Boolean).join(', ') || 'Location not set'}
+                            <Text style={[styles.locationText, { color: colors.textMuted }]}>
+                                {[user?.city, user?.state].filter(Boolean).join(', ') || 'Global'}
                             </Text>
                         </View>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={styles.headerRight}>
                         <TouchableOpacity style={styles.iconBtn} onPress={() => setIsNotifModalOpen(true)}>
-                            <Bell color={colors.text} size={20} />
-                            {unreadCount > 0 && (
-                                <View style={styles.notifBadge} />
-                            )}
+                            <Bell color={colors.text} size={22} />
+                            {unreadCount > 0 && <View style={styles.notifBadge} />}
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconBtn} onPress={fetchLocation} disabled={refreshing}>
-                            {refreshing ? <Activity color={colors.text} size={20} /> : <RefreshCw color={colors.text} size={18} />}
+                        <TouchableOpacity style={styles.avatarBox} onPress={fetchLocation}>
+                            {refreshing ? (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            ) : (
+                                <Text style={[styles.avatarText, { color: colors.primary }]}>{getInitials(user?.name || 'U')}</Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
+            </View>
 
-                {/* Live Area Radar Box */}
-                <View style={styles.card}>
-                    <View style={styles.labelRow}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <PulseRadar colors={colors} />
-                            <Text style={styles.cardTitle}> Live Area Radar</Text>
+            <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* Metrics Grid Row */}
+                <View style={styles.metricsRow}>
+                    <MetricCard 
+                        label="Active Radar" 
+                        value={`${userRadius}m`} 
+                        icon={<TrendingUp color={colors.primary} size={16} />} 
+                        description="+12% activity"
+                        color={colors.primary}
+                        style={{ flex: 1 }}
+                    />
+                    <MetricCard 
+                        label="Near You" 
+                        value={nearbyProjects.length.toString()} 
+                        icon={<MapPin color={colors.accent} size={16} />} 
+                        color={colors.accent}
+                        style={{ flex: 1 }}
+                    />
+                    <MetricCard 
+                        label="Unread" 
+                        value={unreadCount.toString()} 
+                        icon={<Bell color="#f59e0b" size={16} />} 
+                        color="#f59e0b"
+                        style={{ flex: 1 }}
+                    />
+                </View>
+
+                {/* Main Radar Card */}
+                <GlassCard intensity={40} style={styles.radarCard as ViewStyle}>
+                    <View style={styles.radarHeader}>
+                        <View style={styles.radarTitleRow}>
+                            <View style={[styles.statusIndicator, { backgroundColor: colors.success }]} />
+                            <Text style={[styles.radarTitle, { color: colors.text }]}>JanSang Radar</Text>
                         </View>
-                        <View style={styles.liveBadge}>
-                            <View style={styles.liveDot} />
-                            <Text style={styles.liveText}>{userRadius}m Focus</Text>
+                        <View style={[styles.liveCounter, { backgroundColor: `${colors.primary}20` }]}>
+                            <Text style={[styles.liveText, { color: colors.primary }]}>LIVE TRACKING</Text>
                         </View>
                     </View>
                     
@@ -829,8 +860,7 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                             <Text style={styles.muted}>{errorMsg || 'Acquiring GPS...'}</Text>
                         </View>
                     )}
-                </View>
-
+                </GlassCard>
 
                 {/* Within Dynamic Radius Section */}
                 <View style={styles.sectionHeaderRow}>
@@ -1072,13 +1102,27 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
 }
 
 const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 50 },
+    container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
     expandedMapContainer: { flex: 1, backgroundColor: '#000', width: '100%', height: '100%' },
     closeMapBtn: { flexDirection: 'row', alignItems: 'center', position: 'absolute', top: 50, right: 20, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
-    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.transparentBorder },
+    header: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 15 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    locationSummary: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    avatarBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primary + '30' },
+    searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, marginTop: 16 },
+    scrollContent: { paddingBottom: 120 },
+    metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: -6, marginBottom: 16 },
+    radarCard: { borderRadius: 24, padding: 20, marginBottom: 24 },
+    radarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    radarTitleRow: { flexDirection: 'row', alignItems: 'center' },
+    statusIndicator: { width: 8, height: 8, borderRadius: 4, marginRight: 8, shadowColor: colors.success, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 6, elevation: 4 },
+    radarTitle: { fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+    liveCounter: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.transparentPrimary, alignItems: 'center', justifyContent: 'center' },
     avatarText: { color: colors.primary, fontWeight: 'bold', fontSize: 16 },
-    greeting: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+    greeting: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
     locationBox: { 
         flexDirection: 'row', 
         alignItems: 'center', 
@@ -1091,6 +1135,9 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
         borderColor: colors.transparentBorder,
         alignSelf: 'flex-start',
         maxWidth: '95%'
+    },
+    containerOrg: {
+        paddingHorizontal: 12,
     },
     locationText: { fontSize: 12, color: colors.text, fontWeight: '600' },
     bigLocationCard: {

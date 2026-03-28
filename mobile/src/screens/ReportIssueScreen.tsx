@@ -477,7 +477,7 @@ export default function ReportIssueScreen({ onDone }: { onDone: () => void }) {
     return (
         <>
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
                 <View style={styles.header}>
                     <AlertTriangle color={colors.primary} size={24} />
                     <Text style={styles.pageTitle}>Report Civic Issue</Text>

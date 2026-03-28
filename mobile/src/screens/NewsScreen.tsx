@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, StatusBar, Platform } from 'react-native';
 import { useQuery } from 'convex/react';
 import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Bell, MapPin, ArrowRight, CheckCircle2, Hammer, ClipboardList, AlertTriangle, Search, TrendingUp, Filter, BarChart3, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Bell, MapPin, ArrowRight, CheckCircle, Hammer, ClipboardList, AlertTriangle, Search, TrendingUp, Filter, BarChart, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import GlassCard from '../components/GlassCard';
 
 export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: string) => void }) {
     const { user } = useAuth();
-    const { colors } = useTheme();
-    const styles = createStyles(colors);
+    const { colors, isDark } = useTheme();
+    const styles = createStyles(colors, isDark);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -57,7 +59,7 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
 
     const StatusIcon = ({ status }: { status: string }) => {
         switch(status) {
-            case 'completed': return <CheckCircle2 color={colors.success} size={20} />;
+            case 'completed': return <CheckCircle color={colors.success} size={20} />;
             case 'in_progress': return <Hammer color={colors.warning} size={20} />;
             case 'planned': return <ClipboardList color={colors.primary} size={20} />;
             default: return <AlertTriangle color={colors.iconDefault} size={20} />;
@@ -73,13 +75,22 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            <LinearGradient
+                colors={isDark ? ['#080b14', '#0d1225'] : ['#f1f5f9', '#e2e8f0']}
+                style={StyleSheet.absoluteFill}
+            />
+            <StatusBar 
+                barStyle={isDark ? "light-content" : "dark-content"} 
+                backgroundColor="transparent" 
+                translucent 
+            />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                 <Text style={styles.pageTitle}>Government Initiatives</Text>
                 <Text style={styles.pageSub}>Latest work in {user?.state || 'your area'} • Updates in real-time</Text>
 
                 {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                    <Search color={colors.textMuted} size={18} />
+                <GlassCard intensity={40} style={styles.searchContainer as any}>
+                    <Search color={colors.textMuted} size={20} />
                     <TextInput 
                         style={styles.searchInput}
                         placeholder="Search initiatives, locations..."
@@ -87,7 +98,7 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
-                </View>
+                </GlassCard>
                 
                 {/* Filters Row */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersRow} contentContainerStyle={{ paddingRight: 20 }}>
@@ -109,7 +120,7 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
                             setSectorFilter(sectors[nextIdx]);
                         }}
                     >
-                        <BarChart3 size={14} color={sectorFilter !== 'all' ? '#fff' : colors.textMuted} />
+                        <BarChart size={14} color={sectorFilter !== 'all' ? '#fff' : colors.textMuted} />
                         <Text style={[styles.filterChipText, sectorFilter !== 'all' && styles.filterChipTextActive]}>
                             {sectorFilter === 'all' ? 'Sector' : sectorFilter.replace('_', ' ')}
                         </Text>
@@ -133,22 +144,24 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
                             <TrendingUp color={colors.primary} size={18} />
                             <Text style={styles.trendingTitle}>Top High-Budget Works</Text>
                         </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trendingScrollUrl}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trendingScrollContent}>
                             {topProjects.map((project: any) => (
                                 <TouchableOpacity 
                                     key={project._id} 
-                                    style={styles.highlightCard}
                                     onPress={() => onViewWork?.(project._id)}
                                     activeOpacity={0.8}
+                                    style={styles.highlightCardWrap}
                                 >
-                                    <View style={styles.highlightBudgetBox}>
-                                        <Text style={styles.highlightBudgetText}>₹{(project.budget / 10000000).toFixed(1)} Cr</Text>
-                                    </View>
-                                    <Text style={styles.highlightTitle} numberOfLines={2}>{project.name}</Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                                        <MapPin color={colors.textMuted} size={12} />
-                                        <Text style={styles.highlightLoc} numberOfLines={1}> {project.location?.address?.split(',')[0] || 'N/A'}</Text>
-                                    </View>
+                                    <GlassCard intensity={20} style={styles.highlightCard as any}>
+                                        <View style={styles.highlightBudgetBox}>
+                                            <Text style={styles.highlightBudgetText}>₹{(project.budget / 10000000).toFixed(1)} Cr</Text>
+                                        </View>
+                                        <Text style={styles.highlightTitle} numberOfLines={2}>{project.name}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                            <MapPin color={colors.textMuted} size={12} />
+                                            <Text style={styles.highlightLoc} numberOfLines={1}> {project.location?.address?.split(',')[0] || 'N/A'}</Text>
+                                        </View>
+                                    </GlassCard>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
@@ -167,40 +180,42 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
                     feedInitiatives.map((project: any) => (
                         <TouchableOpacity
                             key={project._id}
-                            style={styles.newsCard}
+                            style={styles.newsCardWrap}
                             onPress={() => onViewWork?.(project._id)}
-                            activeOpacity={0.75}
+                            activeOpacity={0.8}
                         >
-                            <View style={styles.newsHeader}>
-                                <StatusIcon status={project.status} />
-                                <View style={{ flex: 1, marginHorizontal: 10 }}>
-                                    <Text style={styles.newsType}>{project.type.toUpperCase()}</Text>
-                                    <Text style={styles.newsTime}>{timeAgo(project.createdAt)}</Text>
-                                </View>
-                                <Text style={styles.newsBudget}>₹{(project.budget / 10000000).toFixed(1)} Cr</Text>
-                            </View>
-                            <Text style={styles.newsTitle}>{project.name}</Text>
-                            
-                            {project.status === 'in_progress' && project.progress !== undefined && (
-                                <View style={styles.progressSection}>
-                                    <View style={styles.progressBarBg}>
-                                        <View style={[styles.progressBarFill, { width: `${project.progress}%` }]} />
+                            <GlassCard intensity={30} style={styles.newsCard as any}>
+                                <View style={styles.newsHeader}>
+                                    <StatusIcon status={project.status} />
+                                    <View style={{ flex: 1, marginHorizontal: 10 }}>
+                                        <Text style={styles.newsType}>{project.type.toUpperCase()}</Text>
+                                        <Text style={styles.newsTime}>{timeAgo(project.createdAt)}</Text>
                                     </View>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                                        <Text style={styles.progressLabel}>Status: In Progress</Text>
-                                        <Text style={styles.progressPercent}>{project.progress}%</Text>
-                                    </View>
+                                    <Text style={styles.newsBudget}>₹{(project.budget / 10000000).toFixed(1)} Cr</Text>
                                 </View>
-                            )}
+                                <Text style={styles.newsTitle}>{project.name}</Text>
+                                
+                                {project.status === 'in_progress' && project.progress !== undefined && (
+                                    <View style={styles.progressSection}>
+                                        <View style={styles.progressBarBg}>
+                                            <View style={[styles.progressBarFill, { width: `${project.progress}%` }]} />
+                                        </View>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                                            <Text style={styles.progressLabel}>Status: In Progress</Text>
+                                            <Text style={styles.progressPercent}>{project.progress}%</Text>
+                                        </View>
+                                    </View>
+                                )}
 
-                            <Text style={styles.newsDesc} numberOfLines={2}>{project.description}</Text>
-                            <View style={styles.newsFooter}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <MapPin color={colors.textMuted} size={14} />
-                                    <Text style={styles.newsLocation}> {project.location?.address || 'N/A'}</Text>
+                                <Text style={styles.newsDesc} numberOfLines={2}>{project.description}</Text>
+                                <View style={styles.newsFooter}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <MapPin color={colors.textMuted} size={14} />
+                                        <Text style={styles.newsLocation}> {project.location?.address || 'N/A'}</Text>
+                                    </View>
+                                    <ArrowRight color={colors.primary} size={18} />
                                 </View>
-                                <ArrowRight color={colors.primary} size={18} />
-                            </View>
+                            </GlassCard>
                         </TouchableOpacity>
                     ))
                 )}
@@ -209,49 +224,49 @@ export default function NewsScreen({ onViewWork }: { onViewWork?: (projectId: st
     );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 50 },
-    pageTitle: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
-    pageSub: { fontSize: 13, color: colors.textMuted, marginBottom: 16 },
+const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+    container: { flex: 1, paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50 },
+    pageTitle: { fontSize: 26, fontWeight: '900', color: colors.text, marginBottom: 4, letterSpacing: -0.5 },
+    pageSub: { fontSize: 13, color: colors.textMuted, marginBottom: 20 },
     
-    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 16, height: 48, marginBottom: 20, borderWidth: 1, borderColor: colors.transparentBorder },
-    searchInput: { flex: 1, marginLeft: 10, color: colors.text, fontSize: 15, padding: 0 },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20, borderWidth: 1, borderColor: colors.transparentBorder },
+    searchInput: { flex: 1, marginLeft: 12, color: colors.text, fontSize: 16, padding: 0 },
     
-    filtersRow: { flexDirection: 'row', marginBottom: 20 },
-    filterChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBg + '40', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: colors.transparentBorder },
+    filtersRow: { flexDirection: 'row', marginBottom: 24, paddingVertical: 4 },
+    filterChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBg, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, marginRight: 10, borderWidth: 1, borderColor: colors.transparentBorder },
     filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    filterChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '600', marginLeft: 6 },
+    filterChipText: { color: colors.textMuted, fontSize: 13, fontWeight: '700', marginLeft: 8 },
     filterChipTextActive: { color: '#fff' },
 
-    trendingSection: { marginBottom: 24 },
-    trendingHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    trendingTitle: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-    trendingScrollUrl: { paddingRight: 16 },
-    highlightCard: { width: 160, backgroundColor: colors.card, borderRadius: 16, padding: 16, marginRight: 12, borderWidth: 1, borderColor: colors.transparentBorder, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
-    highlightBudgetBox: { backgroundColor: colors.primary + '20', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginBottom: 10 },
-    highlightBudgetText: { color: colors.primary, fontWeight: 'bold', fontSize: 12 },
-    highlightTitle: { color: colors.text, fontSize: 14, fontWeight: 'bold', lineHeight: 20, height: 40 },
-    highlightLoc: { color: colors.textMuted, fontSize: 11, flex: 1 },
+    trendingSection: { marginBottom: 30 },
+    trendingHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+    trendingTitle: { color: colors.text, fontSize: 18, fontWeight: '800', marginLeft: 8 },
+    trendingScrollContent: { paddingRight: 16 },
+    highlightCardWrap: { marginRight: 14 },
+    highlightCard: { width: 180, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: colors.primary + '20' },
+    highlightBudgetBox: { backgroundColor: colors.primary + '15', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: colors.primary + '30' },
+    highlightBudgetText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
+    highlightTitle: { color: colors.text, fontSize: 15, fontWeight: '700', lineHeight: 22, height: 44 },
+    highlightLoc: { color: colors.textMuted, fontSize: 12, flex: 1, fontWeight: '500' },
 
-    feedHeader: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 16 },
+    feedHeader: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 20 },
 
-    notifBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.transparentPrimary, borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: colors.transparentBorder },
-    notifBannerText: { color: colors.primary, fontSize: 13, fontWeight: '600', marginLeft: 8 },
-    emptyCard: { backgroundColor: colors.card, borderRadius: 14, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: colors.transparentBorder },
-    muted: { color: colors.textMuted, textAlign: 'center', fontSize: 13 },
-    newsCard: { backgroundColor: colors.card, borderRadius: 14, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: colors.transparentBorder },
-    newsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    newsType: { fontSize: 10, color: colors.textMuted, letterSpacing: 1, fontWeight: '600' },
-    newsTime: { fontSize: 10, color: colors.iconDefault, marginTop: 2 },
-    newsBudget: { fontSize: 13, fontWeight: 'bold', color: colors.primary },
-    newsTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 },
-    newsDesc: { fontSize: 13, color: colors.textMuted, lineHeight: 20, marginBottom: 16 },
-    newsFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.transparentBorder, paddingTop: 12 },
-    newsLocation: { fontSize: 12, color: colors.textMuted },
+    emptyCard: { backgroundColor: colors.card, borderRadius: 16, padding: 32, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: colors.transparentBorder },
+    muted: { color: colors.textMuted, textAlign: 'center', fontSize: 14, fontWeight: '500' },
+    newsCardWrap: { marginBottom: 16 },
+    newsCard: { borderRadius: 20, padding: 20, borderWidth: 1, borderColor: colors.transparentBorder },
+    newsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+    newsType: { fontSize: 11, color: colors.textMuted, letterSpacing: 1.2, fontWeight: '800' },
+    newsTime: { fontSize: 11, color: colors.iconDefault, marginTop: 4, fontWeight: '500' },
+    newsBudget: { fontSize: 15, fontWeight: '900', color: colors.primary, letterSpacing: -0.5 },
+    newsTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 10, lineHeight: 24 },
+    newsDesc: { fontSize: 14, color: colors.textMuted, lineHeight: 22, marginBottom: 16 },
+    newsFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.transparentBorder, paddingTop: 16 },
+    newsLocation: { fontSize: 13, color: colors.textMuted, fontWeight: '600' },
 
-    progressSection: { marginBottom: 12, marginTop: 4 },
-    progressBarBg: { height: 6, backgroundColor: colors.inputBg, borderRadius: 3, overflow: 'hidden' },
+    progressSection: { marginBottom: 16, marginTop: 6 },
+    progressBarBg: { height: 8, backgroundColor: colors.inputBg, borderRadius: 4, overflow: 'hidden' },
     progressBarFill: { height: '100%', backgroundColor: colors.primary },
-    progressLabel: { fontSize: 10, color: colors.textMuted, fontWeight: '600' },
-    progressPercent: { fontSize: 10, color: colors.primary, fontWeight: 'bold' },
+    progressLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    progressPercent: { fontSize: 12, color: colors.primary, fontWeight: '900' },
 });
