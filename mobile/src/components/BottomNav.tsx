@@ -6,7 +6,7 @@ import { Map, IndianRupee, Newspaper, User as UserIcon, Plus, ShieldAlert } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GlassCard from './GlassCard';
 
-type Tab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
+type Tab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile' | 'chat' | 'accountability';
 
 export default function BottomNav({ activeTab, onTabChange, userType }: {
     activeTab: Tab;

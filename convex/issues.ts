@@ -1,6 +1,36 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+export const create = mutation({
+    args: {
+        userId: v.string(),
+        projectId: v.optional(v.id("projects")),
+        location: v.object({ lat: v.number(), lng: v.number(), address: v.optional(v.string()) }),
+        description: v.string(),
+        category: v.union(v.literal("road_damage"), v.literal("water_leak"), v.literal("street_light"), v.literal("garbage"), v.literal("construction_delay"), v.literal("other")),
+        aiCategory: v.optional(v.string()),
+        aiSeverity: v.optional(v.number()),
+        aiDescription: v.optional(v.string()),
+        isSpam: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("issues", {
+            ...args,
+            status: "open",
+            upvotes: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+export const updateTxHash = mutation({
+    args: { issueId: v.id("issues"), txHash: v.string() },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.issueId, { polygonTxHash: args.txHash });
+    }
+});
+
 export const reportIssue = mutation({
     args: {
         userId: v.string(),
@@ -15,6 +45,7 @@ export const reportIssue = mutation({
             v.literal("water_leak"),
             v.literal("street_light"),
             v.literal("garbage"),
+            v.literal("construction_delay"),
             v.literal("other")
         ),
         images: v.optional(v.array(v.string())),
@@ -24,7 +55,6 @@ export const reportIssue = mutation({
             ...args,
             status: "open",
             upvotes: [],
-            downvotes: [],
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
@@ -45,36 +75,14 @@ export const toggleUpvote = mutation({
         if (!issue) throw new Error("Issue not found");
         
         let upvotes = issue.upvotes || [];
-        let downvotes = issue.downvotes || [];
         
         if (upvotes.includes(args.userId)) {
             upvotes = upvotes.filter(id => id !== args.userId);
         } else {
             upvotes.push(args.userId);
-            downvotes = downvotes.filter(id => id !== args.userId);
         }
         
-        await ctx.db.patch(args.issueId, { upvotes, downvotes, updatedAt: Date.now() });
-    },
-});
-
-export const toggleDownvote = mutation({
-    args: { issueId: v.id("issues"), userId: v.string() },
-    handler: async (ctx, args) => {
-        const issue = await ctx.db.get(args.issueId);
-        if (!issue) throw new Error("Issue not found");
-        
-        let upvotes = issue.upvotes || [];
-        let downvotes = issue.downvotes || [];
-        
-        if (downvotes.includes(args.userId)) {
-            downvotes = downvotes.filter(id => id !== args.userId);
-        } else {
-            downvotes.push(args.userId);
-            upvotes = upvotes.filter(id => id !== args.userId);
-        }
-        
-        await ctx.db.patch(args.issueId, { upvotes, downvotes, updatedAt: Date.now() });
+        await ctx.db.patch(args.issueId, { upvotes, updatedAt: Date.now() });
     },
 });
 
@@ -83,7 +91,7 @@ export const updateIssueStatus = mutation({
         issueId: v.id("issues"),
         status: v.union(
             v.literal("open"),
-            v.literal("in-progress"),
+            v.literal("in_progress"),
             v.literal("resolved"),
             v.literal("rejected")
         ),

@@ -19,6 +19,8 @@ import GovernmentWorkScreen from './src/screens/GovernmentWorkScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AddWorkScreen from './src/screens/AddWorkScreen';
 import ReportIssueScreen from './src/screens/ReportIssueScreen';
+import AIChatScreen from './src/screens/AIChatScreen';
+import AccountabilityScreen from './src/screens/AccountabilityScreen';
 import BottomNav from './src/components/BottomNav';
 
 // Convex connection
@@ -57,7 +59,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 type AuthScreen = 'login' | 'register' | 'verify' | 'forgotPassword' | 'resetPassword';
-type AppTab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile';
+type AppTab = 'home' | 'budget' | 'initiatives' | 'addWork' | 'reportIssue' | 'profile' | 'chat' | 'accountability';
 
 function AppNavigator() {
     const { user, isLoading } = useAuth();
@@ -107,13 +109,15 @@ function AppNavigator() {
 
     const renderTab = () => {
         switch (activeTab) {
-            case 'home': return <HomeScreen onViewWork={(id: string) => setSelectedProjectId(id)} />;
+            case 'home': return <HomeScreen onViewWork={(id: string) => setSelectedProjectId(id)} onOpenChat={() => setActiveTab('chat')} />;
             case 'budget': return <BudgetScreen onViewProject={(id: string) => setSelectedProjectId(id)} />;
             case 'initiatives': return <NewsScreen onViewWork={(id: string) => setSelectedProjectId(id)} />;
             case 'addWork': return <AddWorkScreen onDone={() => setActiveTab('home')} />;
             case 'reportIssue': return <ReportIssueScreen onDone={() => setActiveTab('home')} />;
-            case 'profile': return <ProfileScreen />;
-            default: return <HomeScreen onViewWork={(id: string) => setSelectedProjectId(id)} />;
+            case 'profile': return <ProfileScreen onViewAccountability={() => setActiveTab('accountability')} />;
+            case 'chat': return <AIChatScreen onBack={() => setActiveTab('home')} />;
+            case 'accountability': return <AccountabilityScreen onBack={() => setActiveTab('profile')} />;
+            default: return <HomeScreen onViewWork={(id: string) => setSelectedProjectId(id)} onOpenChat={() => setActiveTab('chat')} />;
         }
     };
 

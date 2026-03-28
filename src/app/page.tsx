@@ -69,7 +69,7 @@ export default function LandingPage() {
             className="section-label"
             style={{ margin: '0 auto 20px' }}
           >
-            <Sparkles size={14} /> Hyper-Local Targeting Engine
+            <Sparkles size={14} /> JanSang AI • Digital Democracy
           </motion.div>
 
           <motion.h1
@@ -95,14 +95,14 @@ export default function LandingPage() {
             style={{
               fontSize: 'clamp(1rem, 2vw, 1.2rem)',
               color: 'var(--text-secondary)',
-              maxWidth: '600px',
+              maxWidth: '650px',
               margin: '0 auto 40px',
               lineHeight: 1.7,
             }}
           >
-            AI-powered geo-fencing delivers personalized civic updates
-            when citizens are near government infrastructure. Real-time.
-            Transparent. Location-aware.
+            India's ultimate civic transparency engine. JanSang AI uses geo-fencing to deliver
+            AI-personalized updates and Blockchain-verified official accountability right 
+            to your phone when you walk near public projects. 
           </motion.p>
 
           <motion.div

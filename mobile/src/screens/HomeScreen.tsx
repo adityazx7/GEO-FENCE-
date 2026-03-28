@@ -11,7 +11,7 @@ import {
     MapPin, Bell, Maximize2, X, RefreshCw, Activity,
     ShieldAlert, Wallet, Navigation, Clock, List,
     ChevronRight, ArrowUpRight, TrendingUp, Layers, CheckCircle, Trash2, User, MoreVertical,
-    Lock, Package, Construction, Rocket, Car, TrainFront, Radio, School, Plus
+    Lock, Package, Construction, Rocket, Car, TrainFront, Radio, School, Plus, Bot
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { useAuth } from '../context/AuthContext';
@@ -93,7 +93,12 @@ const PulseRadar = ({ colors }: { colors: any }) => {
 };
 
 
-export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) => void }) {
+export default function HomeScreen({ 
+    onViewWork, onOpenChat
+}: { 
+    onViewWork?: (id: string) => void,
+    onOpenChat?: () => void
+}) {
     const { user } = useAuth();
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);
@@ -1097,6 +1102,31 @@ export default function HomeScreen({ onViewWork }: { onViewWork?: (id: string) =
                     </View>
                 </View>
             </Modal>
+            
+            {onOpenChat && (
+                <TouchableOpacity 
+                    style={{
+                        position: 'absolute',
+                        bottom: 90,
+                        right: 20,
+                        backgroundColor: '#3b82f6',
+                        width: 56,
+                        height: 56,
+                        borderRadius: 28,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        shadowColor: '#3b82f6',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.4,
+                        shadowRadius: 8,
+                        elevation: 5,
+                        zIndex: 1000,
+                    }}
+                    onPress={onOpenChat}
+                >
+                    <Bot color="#fff" size={28} />
+                </TouchableOpacity>
+            )}
         </View>
     );
 }

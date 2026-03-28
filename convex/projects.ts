@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-
+import { internal } from "./_generated/api";
 export const create = mutation({
     args: {
         name: v.string(),
@@ -30,14 +30,33 @@ export const create = mutation({
         progress: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
-        return await ctx.db.insert("projects", {
+        const projectId = await ctx.db.insert("projects", {
             ...args,
             likes: args.likes ?? 0,
             dislikes: args.dislikes ?? 0,
+            messagesGenerated: false,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
+        
+        await ctx.scheduler.runAfter(0, internal.aiMessages.generateForProject, {
+            projectId,
+            projectName: args.name,
+            projectType: args.type,
+            projectStatus: args.status,
+            projectImpact: args.impact,
+            projectDescription: args.description 
+        });
+        
+        return projectId;
     },
+});
+
+export const listActiveForGeo = query({
+    args: {},
+    handler: async (ctx) => {
+        return await ctx.db.query("projects").filter(q => q.neq(q.field("status"), "delayed")).collect();
+    }
 });
 
 export const list = query({

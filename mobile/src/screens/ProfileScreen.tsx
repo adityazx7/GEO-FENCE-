@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { useQuery } from 'convex/react';
 import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { LogOut, User as UserIcon, Building, Moon, Sun, Monitor, List, ThumbsUp, MessageSquare, ChevronRight, Package, Bell } from 'lucide-react-native';
+import { LogOut, User as UserIcon, Building, Moon, Sun, Monitor, List, ThumbsUp, MessageSquare, ChevronRight, Package, Bell, FileText, Link as LinkIcon } from 'lucide-react-native';
 import MyPostsScreen from './MyPostsScreen';
 import GovernmentWorkScreen from './GovernmentWorkScreen';
 import PreferencesScreen from './PreferencesScreen';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ 
+    onViewAccountability 
+}: { 
+    onViewAccountability?: () => void 
+}) {
     const { user, logout } = useAuth();
     const { colors, mode, setMode, isDark } = useTheme();
     const [activeView, setActiveView] = useState<'profile' | 'myPosts' | 'projectDetails' | 'preferences'>('profile');
@@ -23,6 +27,8 @@ export default function ProfileScreen() {
         (p.authorId?.toString && user?._id && p.authorId.toString() === user._id) ||
         (user?.orgName && p.authorName === user.orgName)
     );
+
+    const accountabilityRecords = useQuery(api.accountability.listAll) || [];
 
     if (activeView === 'myPosts') {
         return <MyPostsScreen onBack={() => setActiveView('profile')} onOpenProject={(id) => {
@@ -155,6 +161,52 @@ export default function ProfileScreen() {
                         <Text style={styles.emptyText}>Keep engaging with local projects to improve your civic score!</Text>
                     </View>
                 )}
+
+                {/* Accountability Proofs (Blockchain) */}
+                <View style={styles.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                        <FileText color={colors.primary} size={18} />
+                        <Text style={[styles.cardTitle, { marginBottom: 0, marginLeft: 8 }]}>Accountability Proofs (Blockchain)</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: colors.textMuted, marginBottom: 16 }}>
+                        Official project claims are notarized on the Polygon blockchain to ensure tamper-proof civic transparency.
+                    </Text>
+                    {accountabilityRecords.slice(0, 3).map((r: any) => (
+                        <TouchableOpacity
+                            key={r._id}
+                            style={[styles.infoRow, { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.transparentBorder }]}
+                            onPress={() => r.explorerUrl && Linking.openURL(r.explorerUrl)}
+                        >
+                            <Text style={[styles.infoLabel, { color: colors.text, fontWeight: 'bold' }]}>{r.zoneName}</Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 4 }}>
+                                {r.officialName} ({r.officialPost}) claimed completion by {r.claimedCompletionDate}.
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                <LinkIcon color="#8b5cf6" size={14} />
+                                <Text style={{ color: '#8b5cf6', fontSize: 12, marginLeft: 6, fontWeight: 'bold' }}>View Polygon Tx</Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                    {accountabilityRecords.length === 0 && (
+                        <Text style={styles.emptyText}>No blockchain records available yet.</Text>
+                    )}
+                    {accountabilityRecords.length > 0 && onViewAccountability && (
+                        <TouchableOpacity 
+                            style={{ 
+                                marginTop: 16, 
+                                alignItems: 'center', 
+                                padding: 12, 
+                                borderTopWidth: 1, 
+                                borderTopColor: colors.transparentBorder,
+                                backgroundColor: colors.primary + '08',
+                                borderRadius: 12
+                            }}
+                            onPress={onViewAccountability}
+                        >
+                            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 13, letterSpacing: 0.5 }}>VIEW ALL AUDIT PROOFS</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
                 {/* Settings */}
                 <View style={styles.card}>

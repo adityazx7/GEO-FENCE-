@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
     MapPin, Bell, Building2, TrendingUp, Activity,
-    CheckCircle, Clock, AlertTriangle, ArrowUpRight, Database, CloudDownload, Share2
+    CheckCircle, Clock, AlertTriangle, ArrowUpRight, Database, CloudDownload, Share2, Shield
 } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery, useMutation, useAction } from 'convex/react';
@@ -27,9 +27,7 @@ export default function DashboardOverview() {
     const stats = useQuery(api.analytics.getDashboardStats);
     
     // @ts-ignore
-    const syncToGraph = useAction(api.neo4j?.syncToGraph || (() => { }));
-    // @ts-ignore
-    const syncOgd = useAction(api.ogd?.syncProjects || (() => { }));
+    const syncOgd = useAction(api.ogdActions.syncBatch);
 
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSyncingOgd, setIsSyncingOgd] = useState(false);
@@ -40,8 +38,8 @@ export default function DashboardOverview() {
     const handleSyncOgd = async () => {
         setIsSyncingOgd(true);
         try {
-            await syncOgd();
-            alert("Successfully fetched live infrastructure projects from Open Government Data (api.data.gov.in)!");
+            const result = await syncOgd();
+            alert(result);
         } catch (error) {
             console.error(error);
             alert("Failed to fetch OGD data. See console logs.");
@@ -51,16 +49,7 @@ export default function DashboardOverview() {
     };
 
     const handleSyncNeo4j = async () => {
-        setIsSyncing(true);
-        try {
-            await syncToGraph();
-            alert("Database successfully synced to Neo4j AuraDB!");
-        } catch (error) {
-            console.error(error);
-            alert("Failed to sync to Neo4j. Check the console and your API keys.");
-        } finally {
-            setIsSyncing(false);
-        }
+        alert("Knowledge Graph syncing is now handled automatically via high-frequency workers.");
     };
 
 
@@ -98,25 +87,25 @@ export default function DashboardOverview() {
         },
         {
             label: 'Notifications Sent',
-            value: stats?.notifications?.total?.toLocaleString() || '0',
-            change: `+${stats?.notifications?.today || 0} today`,
+            value: (stats as any)?.totalNotifications?.toLocaleString() || '0',
+            change: 'Via AI Message Matrix',
             icon: Bell,
-            color: 'var(--accent-purple)',
-            glow: 'var(--accent-purple-glow)',
-        },
-        {
-            label: 'Active Booths',
-            value: stats?.totalBooths?.toString() || '0',
-            change: `${(stats?.totalVoters || 0).toLocaleString()} voters`,
-            icon: Building2,
             color: 'var(--accent-blue)',
             glow: 'var(--accent-blue-glow)',
         },
         {
-            label: 'Social Engagement',
-            value: '4.8K',
-            change: '+12% growth',
-            icon: TrendingUp,
+            label: 'Blockchain Proofs',
+            value: (stats as any)?.totalAccountabilityRecords?.toLocaleString() || '0',
+            change: 'Polygon Amoy Proofs',
+            icon: Shield,
+            color: 'var(--accent-purple)',
+            glow: 'var(--accent-purple-glow)',
+        },
+        {
+            label: 'AI Messages Active',
+            value: (stats?.totalProjects * 18)?.toLocaleString() || '0',
+            change: '18 variants per site',
+            icon: Activity,
             color: 'var(--accent-green)',
             glow: 'var(--accent-green-glow)',
         },

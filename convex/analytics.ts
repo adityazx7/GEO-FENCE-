@@ -30,7 +30,7 @@ export const getDashboardStats = query({
         const entries = await ctx.db.query("geofenceEntries").collect();
         const fences = await ctx.db.query("geoFences").collect();
         const notifications = await ctx.db.query("notifications").collect();
-        const booths = await ctx.db.query("booths").collect();
+        const accountabilityRecords = await ctx.db.query("accountabilityRecords").collect();
 
         const citizenCount = users.filter(u => u.userType === "citizen").length;
         const activeFences = fences.filter(f => f.status === "active").length;
@@ -39,8 +39,7 @@ export const getDashboardStats = query({
         const startOfToday = new Date().setHours(0, 0, 0, 0);
         const todayNotifications = notifications.filter(n => n.createdAt >= startOfToday).length;
 
-        // Calculate total voters across booths
-        const totalVoters = booths.reduce((sum, b) => sum + (b.totalVoters || 0), 0);
+        const totalVoters = citizenCount;
 
         // Calculate total triggers (sum of triggerCount in geoFences)
         const totalTriggers = fences.reduce((sum, f) => sum + (f.triggerCount || 0), 0);
@@ -56,8 +55,10 @@ export const getDashboardStats = query({
             totalEntries: entries.length,
             activeGeofences: activeFences,
             totalTriggers,
-            totalBooths: booths.length,
+            totalBooths: 0,
             totalVoters,
+            totalNotifications: notifications.length,
+            totalAccountabilityRecords: accountabilityRecords.length,
             notifications: {
                 total: notifications.length,
                 today: todayNotifications

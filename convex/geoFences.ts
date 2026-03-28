@@ -13,6 +13,7 @@ export const create = mutation({
         center: v.object({ lat: v.number(), lng: v.number() }),
         radius: v.number(),
         polygon: v.optional(v.array(v.object({ lat: v.number(), lng: v.number() }))),
+        linkedProjectId: v.optional(v.id("projects")),
     },
     handler: async (ctx, args) => {
         return await ctx.db.insert("geoFences", {
@@ -60,6 +61,15 @@ export const getById = query({
     args: { id: v.id("geoFences") },
     handler: async (ctx, args) => {
         return await ctx.db.get(args.id);
+    },
+});
+
+export const getByName = query({
+    args: { name: v.string() },
+    handler: async (ctx, args) => {
+        return await ctx.db.query("geoFences")
+            .filter(q => q.eq(q.field("name"), args.name))
+            .first();
     },
 });
 

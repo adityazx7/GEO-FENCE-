@@ -19,7 +19,7 @@ export default function ResetPasswordScreen({ onNavigate }: { onNavigate: (scree
     const [resendTimer, setResendTimer] = useState(0);
     const [success, setSuccess] = useState(false);
     const { pendingEmail } = useAuth();
-    const resetPassword = useMutation(api.authHelpers.resetPassword);
+    const resetPassword = useAction(api.auth.resetPassword);
     const forgotPassword = useAction(api.auth.forgotPassword);
     const { colors, isDark } = useTheme();
     const styles = createStyles(colors, isDark);

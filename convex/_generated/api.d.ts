@@ -8,7 +8,11 @@
  * @module
  */
 
+import type * as accountability from "../accountability.js";
+import type * as accountabilityActions from "../accountabilityActions.js";
 import type * as ai from "../ai.js";
+import type * as aiMessages from "../aiMessages.js";
+import type * as aiMessagesHelpers from "../aiMessagesHelpers.js";
 import type * as ai_internal from "../ai_internal.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
@@ -18,8 +22,12 @@ import type * as files from "../files.js";
 import type * as geoFences from "../geoFences.js";
 import type * as geospatial from "../geospatial.js";
 import type * as issues from "../issues.js";
+import type * as issuesActions from "../issuesActions.js";
 import type * as notifications from "../notifications.js";
+import type * as ogd from "../ogd.js";
+import type * as ogdActions from "../ogdActions.js";
 import type * as projects from "../projects.js";
+import type * as ragAgent from "../ragAgent.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
@@ -30,7 +38,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountability: typeof accountability;
+  accountabilityActions: typeof accountabilityActions;
   ai: typeof ai;
+  aiMessages: typeof aiMessages;
+  aiMessagesHelpers: typeof aiMessagesHelpers;
   ai_internal: typeof ai_internal;
   analytics: typeof analytics;
   auth: typeof auth;
@@ -40,8 +52,12 @@ declare const fullApi: ApiFromModules<{
   geoFences: typeof geoFences;
   geospatial: typeof geospatial;
   issues: typeof issues;
+  issuesActions: typeof issuesActions;
   notifications: typeof notifications;
+  ogd: typeof ogd;
+  ogdActions: typeof ogdActions;
   projects: typeof projects;
+  ragAgent: typeof ragAgent;
   seed: typeof seed;
   users: typeof users;
 }>;

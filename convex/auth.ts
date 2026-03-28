@@ -1,7 +1,9 @@
+"use node";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
+import bcrypt from 'bcryptjs';
 
 export const register = action({
     args: {
@@ -29,10 +31,13 @@ export const register = action({
         const existing = await ctx.runQuery(internal.auth_internal.getUserByEmail, { email: args.email });
         if (existing) throw new Error("A user with this email already exists.");
 
-        // In a real app, hash password here. For demo, we just store it.
+        // Hash password securely via bcrypt
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+
         const userId: Id<"users"> = await ctx.runMutation(internal.auth_internal.createUser, {
             ...rest,
-            passwordHash: password, 
+            passwordHash, 
         });
         
         // Generate OTP
@@ -103,8 +108,9 @@ export const login = action({
             throw new Error("Invalid email or password.");
         }
         
-        // In real app, check hash. 
-        if (user.passwordHash !== args.password) {
+        // Check hash
+        const isValid = await bcrypt.compare(args.password, user.passwordHash || "");
+        if (!isValid) {
             console.error(`Password mismatch for: ${email}`);
             throw new Error("Invalid email or password.");
         }
@@ -223,11 +229,29 @@ export const forgotPassword = action({
                     const errorData = await response.json();
                     console.error("Resend API error (ForgotPassword):", response.status, errorData);
                 } else {
-                    console.log("Resend API success (ForgotPassword): Email sent to", email);
+                        console.log("Resend API success (ForgotPassword): Email sent to", email);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch Resend API (ForgotPassword):", e);
                 }
-            } catch (e) {
-                console.error("Failed to fetch Resend API (ForgotPassword):", e);
             }
-        }
-    },
-});
+        },
+    });
+    
+    export const resetPassword = action({
+        args: { email: v.string(), code: v.string(), newPassword: v.string() },
+        handler: async (ctx, args): Promise<void> => {
+            const email = args.email.trim().toLowerCase();
+            
+            // Hash password securely via bcrypt
+            const saltRounds = 10;
+            const passwordHash = await bcrypt.hash(args.newPassword, saltRounds);
+            
+            // Validate code and update DB in one transaction
+            await ctx.runMutation(internal.auth_internal.verifyAndSetPassword, {
+                email,
+                code: args.code,
+                newPasswordHash: passwordHash
+            });
+        },
+    });

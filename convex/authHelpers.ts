@@ -24,30 +24,3 @@ export const verifyEmail = mutation({
     },
 });
 
-export const resetPassword = mutation({
-    args: { email: v.string(), code: v.string(), newPassword: v.string() },
-    handler: async (ctx, args) => {
-        const verification = await ctx.db.query("verificationCodes")
-            .withIndex("by_email", q => q.eq("email", args.email))
-            .filter(q => q.and(q.eq(q.field("code"), args.code), q.eq(q.field("used"), false)))
-            .first();
-            
-        if (!verification || verification.expiresAt < Date.now()) {
-            throw new Error("Invalid or expired verification code.");
-        }
-        
-        await ctx.db.patch(verification._id, { used: true });
-        
-        const user = await ctx.db.query("users")
-            .withIndex("by_email", q => q.eq("email", args.email))
-            .unique();
-            
-        if (!user) throw new Error("User not found.");
-        
-        // In a real app, hash newPassword here.
-        await ctx.db.patch(user._id, { 
-            passwordHash: args.newPassword,
-            updatedAt: Date.now() 
-        });
-    },
-});

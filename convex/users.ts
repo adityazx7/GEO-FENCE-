@@ -19,7 +19,6 @@ export const syncUser = mutation({
             await ctx.db.patch(existing._id, {
                 name: args.name,
                 email: args.email,
-                avatar: args.avatar,
                 updatedAt: Date.now(),
             });
             return existing._id;
@@ -32,7 +31,6 @@ export const syncUser = mutation({
             role: args.role ?? "citizen",
             userType: "citizen",
             isVerified: true,
-            avatar: args.avatar,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
