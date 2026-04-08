@@ -1,25 +1,25 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { mutation, internalMutation } from "./_generated/server";
+import bcrypt from "bcryptjs";
 
-export const seedTestUser = internalMutation({
+export const seedTestUser = mutation({
     args: {},
     handler: async (ctx) => {
         const email = "org@jansang.ai";
-        const password = "password"; // Use a simple password for testing
+        const password = "password"; 
         
         const existing = await ctx.db.query("users")
             .withIndex("by_email", q => q.eq("email", email))
             .first();
             
-        if (existing) {
-            console.log("Test user already exists.");
-            return existing._id;
-        }
-        
+        // Hash password with bcryptjs (sync version for mutations)
+        const saltRounds = 10;
+        const passwordHash = bcrypt.hashSync(password, saltRounds);
+
         const userId = await ctx.db.insert("users", {
             name: "Test Org Admin",
             email: email,
-            passwordHash: password,
+            passwordHash: passwordHash,
             role: "admin",
             userType: "organization",
             isVerified: true,
@@ -29,12 +29,12 @@ export const seedTestUser = internalMutation({
             updatedAt: Date.now(),
         });
         
-        console.log(`Created test user: ${email} with password: ${password}`);
+        console.log(`Created test user: ${email} with hashed password.`);
         return userId;
     },
 });
 
-export const listUsers = internalMutation({
+export const listUsers = mutation({
     args: {},
     handler: async (ctx) => {
         const users = await ctx.db.query("users").collect();
@@ -50,27 +50,32 @@ export const findUserRaw = internalMutation({
     },
 });
 
-export const seedSpecificUser = internalMutation({
+export const seedSpecificUser = mutation({
     args: { email: v.string(), password: v.string() },
     handler: async (ctx, args) => {
         const email = args.email.trim().toLowerCase();
+        
+        // Hash password with bcryptjs (sync version for mutations)
+        const saltRounds = 10;
+        const passwordHash = bcrypt.hashSync(args.password, saltRounds);
+
         const existing = await ctx.db.query("users")
             .withIndex("by_email", q => q.eq("email", email))
             .first();
             
         if (existing) {
             await ctx.db.patch(existing._id, { 
-                passwordHash: args.password, 
+                passwordHash: passwordHash, 
                 isVerified: true,
                 role: "admin"
             });
-            return "Updated existing user with new password and verified status.";
+            return "Updated existing user with new hashed password and verified status.";
         }
         
         await ctx.db.insert("users", {
             name: "Organization Admin",
             email: email,
-            passwordHash: args.password,
+            passwordHash: passwordHash,
             role: "admin",
             userType: "organization",
             isVerified: true,

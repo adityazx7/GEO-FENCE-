@@ -100,7 +100,7 @@ export const login = action({
     },
     handler: async (ctx, args): Promise<Doc<"users">> => {
         const email = args.email.trim().toLowerCase();
-        console.log(`Attempting login for: ${email}`);
+        console.log(`Attempting login for: ${email} (password length: ${args.password.length})`);
         
         const user = await ctx.runQuery(internal.auth_internal.getUserByEmail, { email });
         if (!user) {
@@ -110,8 +110,11 @@ export const login = action({
         
         // Check hash
         const isValid = await bcrypt.compare(args.password, user.passwordHash || "");
+        console.log(`Password verification for ${email}: ${isValid}`);
         if (!isValid) {
             console.error(`Password mismatch for: ${email}`);
+            // Diagnostic (only for internal dev): 
+            console.log(`Stored hash starts with: ${user.passwordHash?.substring(0, 10)}...`);
             throw new Error("Invalid email or password.");
         }
         

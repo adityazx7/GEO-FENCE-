@@ -88,17 +88,29 @@ Return ONLY raw JSON:
 
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         }
       );
+
+      if (!res.ok) {
+        throw new Error(`Gemini API error: ${res.status} ${res.statusText}`);
+      }
+
       const data: any = await res.json();
-      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (!raw) throw new Error("Empty response from Gemini");
+
       const clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
       const record = JSON.parse(clean);
+
+      // Verify record is valid before mutation
+      if (!record.actualStatus || !record.officialName) {
+        throw new Error("Gemini returned invalid data for the record.");
+      }
 
       const result: any = await ctx.runMutation(api.accountability.createRecord, {
         zoneId: args.zoneId,

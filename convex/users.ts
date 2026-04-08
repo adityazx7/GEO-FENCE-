@@ -198,3 +198,37 @@ export const getUserByEmail = query({
     },
 });
 
+export const getUserByIdOrEmail = query({
+    args: { idOrEmail: v.string() },
+    handler: async (ctx, args) => {
+        if (!args.idOrEmail) return null;
+
+        // 1. Try fetching by Clerk ID (most common for mobile)
+        const byClerk = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (q) => q.eq("clerkId", args.idOrEmail))
+            .unique();
+        if (byClerk) return byClerk;
+
+        // 2. Try fetching by Email
+        const byEmail = await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", args.idOrEmail))
+            .first();
+        if (byEmail) return byEmail;
+
+        // 3. Try fetching by Convex ID (as a fallback)
+        try {
+            // We use a query filter to ensure we only get a document from the 'users' table
+            // and keep TypeScript happy with the return type.
+            const user = await ctx.db
+                .query("users")
+                .filter(q => q.eq(q.field("_id"), args.idOrEmail))
+                .first();
+            return user;
+        } catch (e) {
+            return null;
+        }
+    },
+});
+

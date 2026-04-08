@@ -59,15 +59,22 @@ Return ONLY raw JSON, no markdown:
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         }
       );
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+      }
+
       const data: any = await response.json();
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (!raw) throw new Error("Empty response from Gemini");
+
       const clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
       const matrix = JSON.parse(clean);
 

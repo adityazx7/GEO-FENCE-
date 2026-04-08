@@ -124,11 +124,13 @@ function AppNavigator() {
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             {renderTab()}
-            <BottomNav
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                userType={user.userType as 'citizen' | 'organization'}
-            />
+            {activeTab !== 'chat' && (
+                <BottomNav
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    userType={user.userType as 'citizen' | 'organization'}
+                />
+            )}
         </View>
     );
 }

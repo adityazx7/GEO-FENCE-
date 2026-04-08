@@ -4,3 +4,8 @@ android/
 ios/
 build/
 .git/
+.next/
+.vercel/
+dist/
+.expo/
+*.log

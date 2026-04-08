@@ -32,7 +32,7 @@ export const calculateProximity = action({
         if (userRecord.lastGeofenceCheck && Date.now() - userRecord.lastGeofenceCheck < 30000) {
             return { success: true, triggered: false, throttled: true };
         }
-        await ctx.runMutation(api.users.updateGeofenceCheck, { userId: userRecord._id });
+        await ctx.scheduler.runAfter(0, api.users.updateGeofenceCheck, { userId: userRecord._id });
 
         const pushToken = userRecord.pushToken;
         const userFrequency = userRecord.notificationFrequency || "always";
@@ -91,7 +91,7 @@ export const calculateProximity = action({
                         projectId: project._id,
                         projectName: project.name,
                     });
-                    await ctx.runMutation(api.geoFences.incrementTrigger, { geoFenceId: linkedFence._id });
+                    await ctx.runMutation(api.geoFences.incrementTrigger, { id: linkedFence._id });
                 }
 
                 // AI Message Selection

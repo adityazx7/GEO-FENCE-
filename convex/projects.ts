@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 export const create = mutation({
     args: {
         name: v.string(),
@@ -39,7 +39,7 @@ export const create = mutation({
             updatedAt: Date.now(),
         });
         
-        await ctx.scheduler.runAfter(0, internal.aiMessages.generateForProject, {
+        await ctx.scheduler.runAfter(0, api.aiMessages.generateForProject, {
             projectId,
             projectName: args.name,
             projectType: args.type,

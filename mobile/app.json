@@ -16,7 +16,10 @@
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "JanSang AI needs your location in the background to notify you when you enter a government project zone.",
         "NSLocationWhenInUseUsageDescription": "JanSang AI uses your location to show nearby government projects.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
       }
     },
     "android": {
@@ -43,9 +46,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "a83a9af2-c867-4b98-b036-fdbd315ab5b3"
+        "projectId": "4595b44c-1207-405c-a03f-1d0f47339ab3"
       }
     },
-    "owner": "adityazx7"
+    "owner": "bobiscoming"
   }
 }

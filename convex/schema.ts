@@ -27,6 +27,7 @@ export default defineSchema({
     orgName: v.optional(v.string()),
     orgType: v.optional(v.union(v.literal("ngo"), v.literal("government"), v.literal("private"), v.literal("trust"), v.literal("other"))),
     orgRegistrationNumber: v.optional(v.string()),
+    avatar: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -69,6 +70,8 @@ export default defineSchema({
     location: v.object({ lat: v.number(), lng: v.number(), address: v.string() }),
     authorName: v.optional(v.string()),
     authorId: v.optional(v.id("users")),
+    boothId: v.optional(v.string()),
+    areaImpact: v.optional(v.string()),
     likes: v.optional(v.number()),
     dislikes: v.optional(v.number()),
     beforeImages: v.optional(v.array(v.string())),
@@ -141,8 +144,9 @@ export default defineSchema({
     images: v.optional(v.array(v.string())),
     description: v.string(),
     category: v.union(v.literal("road_damage"), v.literal("water_leak"), v.literal("street_light"), v.literal("garbage"), v.literal("construction_delay"), v.literal("other")),
-    status: v.union(v.literal("open"), v.literal("in_progress"), v.literal("resolved"), v.literal("rejected")),
+    status: v.union(v.literal("open"), v.literal("in_progress"), v.literal("in-progress"), v.literal("resolved"), v.literal("rejected")),
     upvotes: v.optional(v.array(v.string())),
+    downvotes: v.optional(v.array(v.string())),
     // AI triage from CivicPulse
     aiCategory: v.optional(v.string()),
     aiSeverity: v.optional(v.number()), // 1-10

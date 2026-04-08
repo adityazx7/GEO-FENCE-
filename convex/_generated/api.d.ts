@@ -18,6 +18,7 @@ import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as authHelpers from "../authHelpers.js";
 import type * as auth_internal from "../auth_internal.js";
+import type * as debug from "../debug.js";
 import type * as files from "../files.js";
 import type * as geoFences from "../geoFences.js";
 import type * as geospatial from "../geospatial.js";
@@ -28,7 +29,10 @@ import type * as ogd from "../ogd.js";
 import type * as ogdActions from "../ogdActions.js";
 import type * as projects from "../projects.js";
 import type * as ragAgent from "../ragAgent.js";
+import type * as reset from "../reset.js";
 import type * as seed from "../seed.js";
+import type * as seedDelhi from "../seedDelhi.js";
+import type * as testAuth from "../testAuth.js";
 import type * as users from "../users.js";
 
 import type {
@@ -48,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authHelpers: typeof authHelpers;
   auth_internal: typeof auth_internal;
+  debug: typeof debug;
   files: typeof files;
   geoFences: typeof geoFences;
   geospatial: typeof geospatial;
@@ -58,7 +63,10 @@ declare const fullApi: ApiFromModules<{
   ogdActions: typeof ogdActions;
   projects: typeof projects;
   ragAgent: typeof ragAgent;
+  reset: typeof reset;
   seed: typeof seed;
+  seedDelhi: typeof seedDelhi;
+  testAuth: typeof testAuth;
   users: typeof users;
 }>;
 

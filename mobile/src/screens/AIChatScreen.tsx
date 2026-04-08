@@ -4,8 +4,10 @@ import { useAction } from 'convex/react';
 import { api } from '@backend/_generated/api';
 import { useAuth } from '../context/AuthContext';
 import { Send, Bot, User, ArrowLeft, Languages } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AIChatScreen({ onBack }: { onBack: () => void }) {
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const chatAction = useAction(api.ragAgent.chat);
     
@@ -49,9 +51,13 @@ export default function AIChatScreen({ onBack }: { onBack: () => void }) {
     };
 
     return (
-        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView 
+            style={styles.container} 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
                 <TouchableOpacity onPress={onBack} style={styles.backBtn}>
                     <ArrowLeft color="#fff" size={24} />
                 </TouchableOpacity>
@@ -71,7 +77,7 @@ export default function AIChatScreen({ onBack }: { onBack: () => void }) {
             <ScrollView 
                 ref={scrollRef}
                 style={styles.chatArea} 
-                contentContainerStyle={{ padding: 16 }}
+                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
             >
                 {messages.map((m, idx) => (
@@ -104,7 +110,7 @@ export default function AIChatScreen({ onBack }: { onBack: () => void }) {
             </ScrollView>
 
             {/* Input Area */}
-            <View style={styles.inputArea}>
+            <View style={[styles.inputArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                 <TextInput
                     style={styles.input}
                     value={input}
@@ -123,7 +129,7 @@ export default function AIChatScreen({ onBack }: { onBack: () => void }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0a0f1e' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 60, backgroundColor: '#111827', borderBottomWidth: 1, borderBottomColor: '#1f2937' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: '#111827', borderBottomWidth: 1, borderBottomColor: '#1f2937' },
     backBtn: { padding: 8 },
     headerTitleBox: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
